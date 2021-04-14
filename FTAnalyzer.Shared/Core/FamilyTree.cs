@@ -3321,7 +3321,7 @@ namespace FTAnalyzer
         decimal femaleProgress;
         decimal progressMaximum;
 
-        public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList(int value, IProgress<int> progress, IProgress<int> maximum, CancellationToken ct)
+        public SortableBindingList<IDisplayDuplicateIndividual> GenerateDuplicatesList(int value, IProgress<int> progress, IProgress<int> maximum, CancellationToken ct)
         {
             //log.Debug("FamilyTree.GenerateDuplicatesList");
             if (duplicates != null)
@@ -3338,12 +3338,8 @@ namespace FTAnalyzer
             progress.Report(0);
             try
             {
-                var tasks = new List<Task>
-                {
-                    Task.Run(() => IdentifyDuplicates(progress, males, ref maleProgress, ct), ct),
-                    Task.Run(() => IdentifyDuplicates(progress, females, ref femaleProgress, ct), ct)
-                };
-                await Task.WhenAll(tasks).ConfigureAwait(true);
+                IdentifyDuplicates(progress, males, ref maleProgress, ct);
+                IdentifyDuplicates(progress, females, ref femaleProgress, ct);
             }
             catch (OperationCanceledException)
             {
