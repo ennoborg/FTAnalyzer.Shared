@@ -3330,11 +3330,11 @@ namespace FTAnalyzer
                 return BuildDuplicateList(value); // we have already processed the duplicates since the file was loaded
             }
             duplicates = new SortableBindingList<DuplicateIndividual>();
-            IEnumerable<Individual> males = individuals.Filter(x => (x.Gender == "M" || x.Gender == "U"));
-            IEnumerable<Individual> females = individuals.Filter(x => (x.Gender == "F" || x.Gender == "U"));
+            IList<Individual> males = individuals.Filter(x => (x.Gender == "M" || x.Gender == "U")).ToList();
+            IList<Individual> females = individuals.Filter(x => (x.Gender == "F" || x.Gender == "U")).ToList();
             decimal nummales = (ulong)males.Count();
             decimal numfemales = (ulong)males.Count();
-            progressMaximum = (nummales * nummales + numfemales * numfemales) / 2;
+            progressMaximum = (nummales + numfemales) / 2;
             progress.Report(0);
             try
             {
@@ -3364,15 +3364,18 @@ namespace FTAnalyzer
             return score;
         }
 
-        void IdentifyDuplicates(IProgress<int> progress, IEnumerable<Individual> enumerable, ref decimal threadProgress, CancellationToken ct)
+        void IdentifyDuplicates(IProgress<int> progress, IList<Individual> enumerable, ref decimal threadProgress, CancellationToken ct)
         {
             //log.Debug("FamilyTree.IdentifyDuplicates");
             var index = 0;
+            var count = enumerable.Count;
             foreach (var indA in enumerable)
             {
                 index++;
-                foreach (var indB in enumerable.Skip(index))
+                for (int j = index; j < count; j++)
                 {
+                    var indB = enumerable[j];
+
                     if (indA.GenderMatches(indB) && indA.Name != Individual.UNKNOWN_NAME && indB.Name != Individual.UNKNOWN_NAME)
                     {
                         if (indA.SurnameMetaphone.Equals(indB.SurnameMetaphone) &&
@@ -3384,13 +3387,14 @@ namespace FTAnalyzer
                                 duplicates.Add(test);
                         }
                     }
-                    ct.ThrowIfCancellationRequested();
-                    threadProgress++;
-                    if (threadProgress % 500 == 0)
-                    {
-                        decimal val = Math.Min(progressMaximum, 100 * (maleProgress + femaleProgress) / progressMaximum);
-                        progress.Report((int)val);
-                    }
+                }
+
+                ct.ThrowIfCancellationRequested();
+                threadProgress++;
+                if (threadProgress % 10 == 0)
+                {
+                    decimal val = Math.Min(progressMaximum, 100 * (maleProgress + femaleProgress) / progressMaximum);
+                    progress.Report((int)val);
                 }
             }
         }
