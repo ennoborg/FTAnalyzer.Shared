@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Xml;
 using System.Numerics;
+using System.Collections.Concurrent;
 
 #if __PC__
 using FTAnalyzer.Controls;
@@ -41,7 +42,7 @@ namespace FTAnalyzer
         SortableBindingList<IDisplayLooseDeath> looseDeaths;
         SortableBindingList<IDisplayLooseBirth> looseBirths;
         SortableBindingList<IDisplayLooseInfo> looseInfo;
-        SortableBindingList<DuplicateIndividual> duplicates;
+        ConcurrentBag<DuplicateIndividual> duplicates;
         const int DATA_ERROR_GROUPS = 32;
         static XmlNodeList noteNodes;
         BigInteger maxAhnentafel;
@@ -3317,9 +3318,8 @@ namespace FTAnalyzer
         #endregion
 
 #region Duplicates Processing
-        decimal maleProgress;
-        decimal femaleProgress;
-        decimal progressMaximum;
+        int progressMaximum;
+        int threadProgress;
 
         public SortableBindingList<IDisplayDuplicateIndividual> GenerateDuplicatesList(int value, IProgress<int> progress, IProgress<int> maximum, CancellationToken ct)
         {
@@ -3329,17 +3329,17 @@ namespace FTAnalyzer
                 maximum.Report(MaxDuplicateScore());
                 return BuildDuplicateList(value); // we have already processed the duplicates since the file was loaded
             }
-            duplicates = new SortableBindingList<DuplicateIndividual>();
+            duplicates = new ConcurrentBag<DuplicateIndividual>();
             IList<Individual> males = individuals.Filter(x => (x.Gender == "M" || x.Gender == "U")).ToList();
             IList<Individual> females = individuals.Filter(x => (x.Gender == "F" || x.Gender == "U")).ToList();
-            decimal nummales = (ulong)males.Count();
-            decimal numfemales = (ulong)males.Count();
+            int nummales = males.Count();
+            int numfemales = males.Count();
             progressMaximum = (nummales + numfemales) / 2;
             progress.Report(0);
             try
             {
-                IdentifyDuplicates(progress, males, ref maleProgress, ct);
-                IdentifyDuplicates(progress, females, ref femaleProgress, ct);
+                IdentifyDuplicates(progress, males, ct);
+                IdentifyDuplicates(progress, females, ct);
             }
             catch (OperationCanceledException)
             {
@@ -3364,15 +3364,15 @@ namespace FTAnalyzer
             return score;
         }
 
-        void IdentifyDuplicates(IProgress<int> progress, IList<Individual> enumerable, ref decimal threadProgress, CancellationToken ct)
+        void IdentifyDuplicates(IProgress<int> progress, IList<Individual> enumerable, CancellationToken ct)
         {
             //log.Debug("FamilyTree.IdentifyDuplicates");
-            var index = 0;
             var count = enumerable.Count;
-            foreach (var indA in enumerable)
+            Parallel.For(0, count, i =>
             {
-                index++;
-                for (int j = index; j < count; j++)
+                var indA = enumerable[i];
+
+                for (int j = i + 1; j < count; j++)
                 {
                     var indB = enumerable[j];
 
@@ -3390,13 +3390,13 @@ namespace FTAnalyzer
                 }
 
                 ct.ThrowIfCancellationRequested();
-                threadProgress++;
+                Interlocked.Increment(ref threadProgress);
                 if (threadProgress % 10 == 0)
                 {
-                    decimal val = Math.Min(progressMaximum, 100 * (maleProgress + femaleProgress) / progressMaximum);
-                    progress.Report((int)val);
+                    int val = Math.Min(progressMaximum, 100 * threadProgress / progressMaximum);
+                    progress.Report(val);
                 }
-            }
+            });
         }
 
         public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList(int minScore)
