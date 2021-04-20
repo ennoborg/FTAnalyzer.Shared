@@ -3330,16 +3330,11 @@ namespace FTAnalyzer
                 return BuildDuplicateList(value); // we have already processed the duplicates since the file was loaded
             }
             duplicates = new ConcurrentBag<DuplicateIndividual>();
-            IList<Individual> males = individuals.Filter(x => (x.Gender == "M" || x.Gender == "U")).ToList();
-            IList<Individual> females = individuals.Filter(x => (x.Gender == "F" || x.Gender == "U")).ToList();
-            int nummales = males.Count();
-            int numfemales = males.Count();
-            progressMaximum = (nummales + numfemales) / 2;
+            progressMaximum = individuals.Count;
             progress.Report(0);
             try
             {
-                IdentifyDuplicates(progress, males, ct);
-                IdentifyDuplicates(progress, females, ct);
+                IdentifyDuplicates(progress, individuals, ct);
             }
             catch (OperationCanceledException)
             {
