@@ -17,9 +17,11 @@ using System.Web;
 using System.Xml;
 using System.Numerics;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+using FTAnalyzer.Controls;
 
 #if __PC__
-using FTAnalyzer.Controls;
 #elif __MACOS__ || __IOS__
 using FTAnalyzer.ViewControllers;
 #endif
@@ -28,7 +30,7 @@ namespace FTAnalyzer
 {
     public class FamilyTree
     {
-#region Variables
+        #region Variables
         static FamilyTree instance;
 
         IList<FactSource> sources;
@@ -42,7 +44,8 @@ namespace FTAnalyzer
         SortableBindingList<IDisplayLooseDeath> looseDeaths;
         SortableBindingList<IDisplayLooseBirth> looseBirths;
         SortableBindingList<IDisplayLooseInfo> looseInfo;
-        ConcurrentBag<DuplicateIndividual> duplicates;
+ //     SortableBindingList<DuplicateIndividual> duplicates; // never used
+        ConcurrentBag<DuplicateIndividual> buildDuplicates;
         const int DATA_ERROR_GROUPS = 32;
         static XmlNodeList noteNodes;
         BigInteger maxAhnentafel;
@@ -55,7 +58,7 @@ namespace FTAnalyzer
         public string Version { get; set; }
         #endregion
 
-#region Static Functions
+        #region Static Functions
 
         FamilyTree() => ResetData();
 
@@ -191,7 +194,7 @@ namespace FTAnalyzer
         }
         #endregion
 
-#region Load Gedcom XML
+        #region Load Gedcom XML
         public void ResetData()
         {
             DataLoaded = false;
@@ -208,7 +211,8 @@ namespace FTAnalyzer
             SoloFamilies = 0;
             PreMarriageFamilies = 0;
             ResetLooseFacts();
-            duplicates = null;
+//          duplicates = null;      // never used
+            buildDuplicates = null;
             ClearLocations();
 #if __PC__
             TreeViewHandler.Instance.ResetData();
@@ -230,10 +234,10 @@ namespace FTAnalyzer
         {
             if (!unknownFactTypes.ContainsKey(factType))
             {
-                unknownFactTypes.Add(factType,new List<Individual>());
+                unknownFactTypes.Add(factType, new List<Individual>());
             }
         }
-        
+
         public XmlDocument LoadTreeHeader(string filename, FileStream stream, IProgress<string> outputText)
         {
             Loading = true;
@@ -256,7 +260,7 @@ namespace FTAnalyzer
                 return null;
             }
             XmlNode treeSoftware = doc.SelectSingleNode("GED/HEAD/SOUR");
-            if(treeSoftware != null)
+            if (treeSoftware != null)
             {
                 var softwareName = treeSoftware.SelectSingleNode("NAME")?.InnerText;
                 var softwareVersion = treeSoftware.SelectSingleNode("VERS")?.InnerText;
@@ -286,7 +290,7 @@ namespace FTAnalyzer
             }
             if (tempDoc != null && tempDoc.SelectNodes("GED/INDI").Count > 0)
                 doc = tempDoc;
-            if(doc.SelectNodes("GED/INDI").Count ==0)
+            if (doc.SelectNodes("GED/INDI").Count == 0)
             {
                 Loading = false;
                 outputText.Report("Failed to load file no individuals found.");
@@ -381,7 +385,7 @@ namespace FTAnalyzer
 
         public void LoadTreeRelationships(XmlDocument doc, IProgress<int> progress, IProgress<string> outputText)
         {
-            if (string.IsNullOrEmpty(rootIndividualID)) 
+            if (string.IsNullOrEmpty(rootIndividualID))
                 rootIndividualID = individuals[0].IndividualID;
             UpdateRootIndividual(rootIndividualID, progress, outputText); //, true);
             CreateSharedFacts();
@@ -807,14 +811,14 @@ namespace FTAnalyzer
         {
             IEnumerable<CensusFamily> censusFamilies = GetAllCensusFamilies(censusDate, true, false);
 
-            bool missingLC(CensusIndividual x) => x.MissingLostCousins(censusDate, false) && x.CensusReference!=null && x.CensusReference.IsGoodStatus;
+            bool missingLC(CensusIndividual x) => x.MissingLostCousins(censusDate, false) && x.CensusReference != null && x.CensusReference.IsGoodStatus;
             Predicate<CensusIndividual> missingFilter = FilterUtils.AndFilter(relationFilter, missingLC);
             List<CensusIndividual> missingIndiv = censusFamilies.SelectMany(f => f.Members).Filter(missingFilter).Distinct(new CensusIndividualComparer()).ToList();
             bool invalidRef(CensusIndividual x) => x.MissingLostCousins(censusDate, false) && x.CensusReference != null && !x.CensusReference.IsGoodStatus;
             //bool nameFilter(CensusIndividual x) => x.LCForename.Length > 0 && x.LCSurname.Length > 0 && x.Surname != Individual.UNKNOWN_NAME && x.LCSurname !=Individual.UNKNOWN_NAME;
             //bool ageFilter(CensusIndividual x) => x.Age != Age.Unknown;
             Predicate<CensusIndividual> invalidRefFilter = FilterUtils.AndFilter(relationFilter, invalidRef);
-                //FilterUtils.AndFilter(FilterUtils.AndFilter(relationFilter, invalidRef), FilterUtils.AndFilter<CensusIndividual>(nameFilter, ageFilter));
+            //FilterUtils.AndFilter(FilterUtils.AndFilter(relationFilter, invalidRef), FilterUtils.AndFilter<CensusIndividual>(nameFilter, ageFilter));
 
             List<CensusIndividual> invalidRefIndiv = censusFamilies.SelectMany(f => f.Members).Filter(invalidRefFilter).Distinct(new CensusIndividualComparer()).ToList();
             int missing = MissingLCEntries[censusDate];
@@ -841,7 +845,7 @@ namespace FTAnalyzer
         }
         void AddCustomFacts(Individual individual)
         {
-            foreach(string factType in unknownFactTypes.Keys)
+            foreach (string factType in unknownFactTypes.Keys)
             {
                 if (individual.AllFacts.Any(x => x.FactTypeDescription == factType))
                     unknownFactTypes[factType].Add(individual);
@@ -878,9 +882,9 @@ namespace FTAnalyzer
             if (SoloFamilies > 0)
                 outputText.Report($"Added {SoloFamilies} lone individuals as single families.\n");
         }
-#endregion
+        #endregion
 
-#region Properties
+        #region Properties
 
         public bool Loading { get; private set; }
         public bool DataLoaded { get; private set; }
@@ -917,9 +921,9 @@ namespace FTAnalyzer
         public string NextSoloFamily { get { return $"SF{++SoloFamilies}"; } }
 
         public string NextPreMarriageFamily { get { return $"PM{++PreMarriageFamilies}"; } }
-#endregion
+        #endregion
 
-#region Property Functions
+        #region Property Functions
 
         public IEnumerable<Individual> GetAllRelationsOfType(int relationType) => individuals.Filter(ind => ind.RelationType == relationType);
 
@@ -1000,7 +1004,7 @@ namespace FTAnalyzer
         }
         #endregion
 
-#region Loose Info
+        #region Loose Info
         public SortableBindingList<IDisplayLooseInfo> LooseInfo()
         {
             if (looseInfo != null)
@@ -1026,7 +1030,7 @@ namespace FTAnalyzer
         }
         #endregion
 
-#region Loose Births
+        #region Loose Births
 
         public SortableBindingList<IDisplayLooseBirth> LooseBirths()
         {
@@ -1197,9 +1201,9 @@ namespace FTAnalyzer
             return FactDate.UNKNOWN_DATE;
         }
 
-#endregion
+        #endregion
 
-#region Loose Deaths
+        #region Loose Deaths
 
         public SortableBindingList<IDisplayLooseDeath> LooseDeaths()
         {
@@ -1336,9 +1340,9 @@ namespace FTAnalyzer
 
         //}
 
-#endregion
+        #endregion
 
-#region Relationship Functions
+        #region Relationship Functions
         void ClearRelations()
         {
             foreach (Individual i in individuals)
@@ -1379,7 +1383,7 @@ namespace FTAnalyzer
 
                 if (family.Wife != null && parents.IsNaturalMother && indiv.RelationType == Individual.DIRECT)
                 {
-                    BigInteger newAhnentafel = indiv.Ahnentafel * 2 +1;
+                    BigInteger newAhnentafel = indiv.Ahnentafel * 2 + 1;
                     if (family.Wife.RelationType != Individual.UNKNOWN && family.Wife.Ahnentafel != newAhnentafel)
                         AlreadyDirect(family.Wife, newAhnentafel, outputText);
                     else
@@ -1451,7 +1455,7 @@ namespace FTAnalyzer
         {
             ClearRelations();
             RootPerson = GetIndividual(startID);
-            if(RootPerson is null)
+            if (RootPerson is null)
             {
                 startID = individuals[0].IndividualID;
                 RootPerson = GetIndividual(startID);
@@ -1529,7 +1533,7 @@ namespace FTAnalyzer
             bool keepLooping = true;
             while (keepLooping)
             {
-                keepLooping = false; 
+                keepLooping = false;
                 IEnumerable<Family> families = AllFamilies.Where(f => f.HasUnknownRelations && f.HasLinkedRelations);
                 foreach (Family f in families)
                 {
@@ -1590,9 +1594,9 @@ namespace FTAnalyzer
 
         public IEnumerable<Individual> DirectLineIndividuals => AllIndividuals.Filter(i => i.RelationType == Individual.DIRECT || i.RelationType == Individual.DESCENDANT);
 
-#endregion
+        #endregion
 
-#region Displays
+        #region Displays
         public IEnumerable<CensusFamily> GetAllCensusFamilies(CensusDate censusDate, bool censusDone, bool checkCensus)
         {
             if (censusDate != null)
@@ -1773,7 +1777,7 @@ namespace FTAnalyzer
 
         public SortableBindingList<Individual> AllWorkers(string job) => new SortableBindingList<Individual>(occupations[job]);
 
-        public SortableBindingList<Individual> AllCustomFactIndividuals(string factType) => 
+        public SortableBindingList<Individual> AllCustomFactIndividuals(string factType) =>
             new SortableBindingList<Individual>(unknownFactTypes[factType]);
 
         public SortableBindingList<IDisplayFamily> PossiblyMissingChildFamilies
@@ -1782,7 +1786,7 @@ namespace FTAnalyzer
             {
                 SortableBindingList<IDisplayFamily> result = new SortableBindingList<IDisplayFamily>();
                 foreach (Family fam in families)
-                    if(fam.EldestChild !=null && fam.MarriageDate.IsKnown && fam.EldestChild.BirthDate.IsKnown && 
+                    if (fam.EldestChild != null && fam.MarriageDate.IsKnown && fam.EldestChild.BirthDate.IsKnown &&
                       !fam.EldestChild.BirthDate.IsLongYearSpan && fam.EldestChild.BirthDate.BestYear > fam.MarriageDate.BestYear + 3)
                         result.Add(fam);
                 return result;
@@ -1817,7 +1821,7 @@ namespace FTAnalyzer
             }
         }
 
-        public List<IDisplayColourCensus> ColourCensus(string country, RelationTypes relType, string surname, 
+        public List<IDisplayColourCensus> ColourCensus(string country, RelationTypes relType, string surname,
                                                        ComboBoxFamily family, bool IgnoreMissingBirthDates, bool IgnoreMissingDeathDates)
         {
             Predicate<Individual> filter;
@@ -1871,7 +1875,7 @@ namespace FTAnalyzer
                 }
             }
             else
-                filter = x=> family.Members.Contains(x);
+                filter = x => family.Members.Contains(x);
             return individuals.Filter(filter).ToList<IDisplayColourBMD>();
         }
 
@@ -1891,9 +1895,9 @@ namespace FTAnalyzer
                 filter = x => family.Members.Contains(x);
             return individuals.Filter(filter).ToList<IDisplayMissingData>();
         }
-#endregion
+        #endregion
 
-#region Data Errors
+        #region Data Errors
 
         void SetDataErrorTypes(IProgress<int> progress)
         {
@@ -1905,7 +1909,7 @@ namespace FTAnalyzer
             for (int i = 0; i < DATA_ERROR_GROUPS; i++)
                 errors[i] = new List<DataError>();
             // calculate error lists
-    #region Individual Fact Errors
+            #region Individual Fact Errors
             foreach (Individual ind in AllIndividuals)
             {
                 progress.Report(20 + (record++ / totalRecords));
@@ -1924,7 +1928,7 @@ namespace FTAnalyzer
                             }
                         }
                     }
-        #region Death facts
+                    #region Death facts
                     if (ind.DeathDate.IsKnown)
                     {
                         if (ind.BirthDate.IsAfter(ind.DeathDate))
@@ -1939,8 +1943,8 @@ namespace FTAnalyzer
                         if (ind.IsFlaggedAsLiving)
                             errors[(int)Dataerror.LIVING_WITH_DEATH_DATE].Add(new DataError((int)Dataerror.LIVING_WITH_DEATH_DATE, ind, $"Flagged as living but has death date of {ind.DeathDate}"));
                     }
-#endregion
-        #region Error facts
+                    #endregion
+                    #region Error facts
                     foreach (Fact f in ind.ErrorFacts)
                     {
                         bool added = false;
@@ -2027,7 +2031,7 @@ namespace FTAnalyzer
                                             ind, "On the 1939 National Register but birth date is not exact"));
                         }
                     }
-#region Duplicate Fact Check
+                    #region Duplicate Fact Check
                     var dup = ind.AllFileFacts.GroupBy(x => x.EqualHash).Where(g => g.Count() > 1).Select(y => y.Key).ToList();
                     var dupList = new List<Fact>();
                     foreach (string dfs in dup)
@@ -2052,9 +2056,9 @@ namespace FTAnalyzer
                                                 ind, $"Possibly duplicated {pdf.FactTypeDescription} fact recorded"));
                         }
                     }
-#endregion
-#endregion
-        #region Parents Facts
+                    #endregion
+                    #endregion
+                    #region Parents Facts
                     foreach (ParentalRelationship parents in ind.FamiliesAsChild)
                     {
                         Family asChild = parents.Family;
@@ -2107,7 +2111,7 @@ namespace FTAnalyzer
                             {
                                 Individual wifesFather = ind.IsMale ? spouse.NaturalFather : ind.NaturalFather;
                                 Individual husband = ind.IsMale ? ind : spouse;
-                                if(husband.Surname != wifesFather?.Surname) // if couple have same surname and wife is different from her natural father then likely error
+                                if (husband.Surname != wifesFather?.Surname) // if couple have same surname and wife is different from her natural father then likely error
                                     errors[(int)Dataerror.SAME_SURNAME_COUPLE].Add(new DataError((int)Dataerror.SAME_SURNAME_COUPLE, ind, $"Spouse {spouse.Name} has same surname. Usually due to wife incorrectly recorded with married instead of maiden name."));
                             }
                             //if (ind.FirstMarriage != null && ind.FirstMarriage.MarriageDate != null)
@@ -2118,7 +2122,7 @@ namespace FTAnalyzer
                             //    }
                             //}
                         }
-                        if(!ind.IsMale) // for females as parent in family check children
+                        if (!ind.IsMale) // for females as parent in family check children
                         {
                             womansChildren.AddRange(asParent.Children.Where(c => c.IsNaturalChildOf(ind)));
                         }
@@ -2135,12 +2139,12 @@ namespace FTAnalyzer
                                 double daysDiff = child.BirthDate.DaysDifference(previousBirth);
                                 if (daysDiff >= 10 && daysDiff <= 168)
                                     errors[(int)Dataerror.SIBLING_TOO_SOON].Add(new DataError((int)Dataerror.SIBLING_TOO_SOON, Fact.FactError.ERROR, child, $"Child {child.Name} of {ind.Name} born too soon, only {daysDiff} days after sibling."));
-                                if(daysDiff>168 && daysDiff< 365)
+                                if (daysDiff > 168 && daysDiff < 365)
                                     errors[(int)Dataerror.SIBLING_PROB_TOO_SOON].Add(new DataError((int)Dataerror.SIBLING_PROB_TOO_SOON, Fact.FactError.QUESTIONABLE, ind, $"Child {child.Name} of {ind.Name} born very soon after sibling, only {daysDiff} days later."));
                             }
                         }
                     }
-#endregion
+                    #endregion
                 }
 #if __MACOS__ || __IOS__
                 catch (Exception)
@@ -2158,8 +2162,8 @@ namespace FTAnalyzer
                 }
 #endif
             }
-#endregion
-    #region Family Fact Errors
+            #endregion
+            #region Family Fact Errors
             catchCount = 0;
             foreach (Family fam in AllFamilies)
             {
@@ -2182,10 +2186,10 @@ namespace FTAnalyzer
                 catch (Exception)
                 {
                     if (catchCount == 0) // prevent multiple displays of the same error - usually resource icon load failures
-                       catchCount++;
+                        catchCount++;
                 }
             }
-    #endregion
+            #endregion
 
             for (int i = 0; i < DATA_ERROR_GROUPS; i++)
                 DataErrorTypes.Add(new DataErrorGroup(i, errors[i]));
@@ -2228,7 +2232,7 @@ namespace FTAnalyzer
 
         public static string ProviderName(int censusProvider)
         {
-            switch(censusProvider)
+            switch (censusProvider)
             {
                 case 0:
                     return "Ancestry";
@@ -2274,7 +2278,7 @@ namespace FTAnalyzer
                     uri = BuildFamilySearchCensusQuery(censusCountry, censusYear, person);
                     break;
                 case 4:
-                    uri = BuildScotlandsPeopleCensusQuery(censusYear, person);    
+                    uri = BuildScotlandsPeopleCensusQuery(censusYear, person);
                     break;
             }
             if (uri != null)
@@ -2296,10 +2300,10 @@ namespace FTAnalyzer
             if (person.Forename != "?" && person.Forename.ToUpper() != Individual.UNKNOWN_NAME)
                 path.Append($"&forename={HttpUtility.UrlEncode(person.Forenames)}&forename_so=syn");
             Age age = person.GetAge(censusFactDate);
-            if(censusYear == 1841 && age.MaxAge > 15)
-                path.Append($"&age_from={age.MinAge-1}&age_to={age.MaxAge+5}");
+            if (censusYear == 1841 && age.MaxAge > 15)
+                path.Append($"&age_from={age.MinAge - 1}&age_to={age.MaxAge + 5}");
             else
-                path.Append($"&age_from={age.MinAge-1}&age_to={age.MaxAge+1}");
+                path.Append($"&age_from={age.MinAge - 1}&age_to={age.MaxAge + 1}");
             path.Append($"&record_type=census&year%5B0%5D={censusYear}");
             return path.ToString();
         }
@@ -2340,9 +2344,9 @@ namespace FTAnalyzer
                 if (collection > 0)
                     path.Append($"&collection_id={collection}");
                 else if (Countries.IsUnitedKingdom(country))
-            {
-                collection = FamilySearch.CensusCollectionID(Countries.ENGLAND, censusYear);
-                path.Append($"&collection_id={collection}");
+                {
+                    collection = FamilySearch.CensusCollectionID(Countries.ENGLAND, censusYear);
+                    path.Append($"&collection_id={collection}");
                 }
                 else if (Countries.IsKnownCountry(country))
                 { // TODO
@@ -2753,7 +2757,7 @@ namespace FTAnalyzer
                 query.Append($"yearofbirth={year} &");
                 query.Append($"yearofbirth_offset={range}&");
             }
-            if(censusYear == 1911 && Countries.IsUnitedKingdom(censusCountry))
+            if (censusYear == 1911 && Countries.IsUnitedKingdom(censusCountry))
             {
                 CensusReference reference = person.GetCensusReference(CensusDate.EWCENSUS1911);
                 if (reference?.Piece != null && reference.Schedule == "Missing")
@@ -2840,9 +2844,9 @@ namespace FTAnalyzer
             return uri.ToString();
         }
 
-#endregion
+        #endregion
 
-#region Birth/Marriage/Death Searching
+        #region Birth/Marriage/Death Searching
 
         public enum SearchType { BIRTH = 0, MARRIAGE = 1, DEATH = 2 };
 
@@ -2856,12 +2860,12 @@ namespace FTAnalyzer
                     CheckLooseBirth(individual);
                     factdate = individual.LooseBirthDate;
                 }
-                if(st.Equals(SearchType.MARRIAGE))
+                if (st.Equals(SearchType.MARRIAGE))
                 {
                     if (factdate.StartDate < individual.BirthDate.StartDate.AddYears(GeneralSettings.Default.MinParentalAge))
                         factdate = new FactDate(individual.BirthDate.StartDate.AddYears(GeneralSettings.Default.MinParentalAge), factdate.EndDate);
-                //    CheckLooseMarriage(individual);
-                //    factdate = individual.LooseMarriageDate;
+                    //    CheckLooseMarriage(individual);
+                    //    factdate = individual.LooseMarriageDate;
                 }
                 if (st.Equals(SearchType.DEATH))
                 {
@@ -2872,15 +2876,15 @@ namespace FTAnalyzer
                     factdate = FactDate.UNKNOWN_DATE; // errors in facts corrupts loose births or deaths
             }
             string provider = string.Empty;
-            Tuple<string, string> uris = new Tuple<string, string>(null,null);
+            Tuple<string, string> uris = new Tuple<string, string>(null, null);
             switch (searchProvider)
             {
                 case 0: uri = BuildAncestryQuery(st, individual, factdate, bmdRegion); provider = "Ancestry"; break;
                 case 1: uri = BuildFindMyPastQuery(st, individual, factdate, bmdRegion); provider = "FindMyPast"; break;
-//                case 2: uri = BuildFreeBMDQuery(st, individual, factdate); provider = "FreeBMD"; break;
+                //                case 2: uri = BuildFreeBMDQuery(st, individual, factdate); provider = "FreeBMD"; break;
                 case 3: uri = BuildFamilySearchQuery(st, individual, factdate); provider = "FamilySearch"; break;
                 case 4: uris = BuildScotlandsPeopleQuery(st, individual, factdate, spouse); provider = "ScotlandsPeople"; break;
-//                case 5: uri = BuildGROQuery(st, individual, factdate); provider = "GRO"; break;
+                    //                case 5: uri = BuildGROQuery(st, individual, factdate); provider = "GRO"; break;
             }
             if (!string.IsNullOrEmpty(uri))
             {
@@ -2888,8 +2892,8 @@ namespace FTAnalyzer
                 Analytics.TrackAction(Analytics.BMDSearchAction, $"Searching {provider} BMDs");
             }
             if (searchProvider == 4)
-            { 
-                if(!string.IsNullOrEmpty(uris.Item1))
+            {
+                if (!string.IsNullOrEmpty(uris.Item1))
                 {
                     SpecialMethods.VisitWebsite(uris.Item1);
                     Analytics.TrackAction(Analytics.BMDSearchAction, $"Searching {provider} OPR BMDs");
@@ -2917,7 +2921,7 @@ namespace FTAnalyzer
             {
                 StringBuilder query = new StringBuilder();
                 query.Append("search_type=people");
-                query.Append("&dl_cat=statutory"); 
+                query.Append("&dl_cat=statutory");
                 if (st == SearchType.BIRTH)
                     query.Append("&dl_rec=statutory-births");
                 else if (st == SearchType.MARRIAGE)
@@ -2932,7 +2936,7 @@ namespace FTAnalyzer
                 else if (st == SearchType.MARRIAGE)
                 {
                     query.Append("&record_type=stat_marriages");
-                    if(spouse != null)
+                    if (spouse != null)
                         query.Append($"&spsurname={HttpUtility.UrlEncode(spouse.Surname)}&spsurname_so=soundex&spforename={HttpUtility.UrlEncode(spouse.Forename)}&spforename_so=syn");
                 }
                 else if (st == SearchType.DEATH)
@@ -2941,7 +2945,7 @@ namespace FTAnalyzer
                 int toYear = Math.Min(factdate.EndDate.Year + 1, FactDate.TODAY.StartDate.Year); // +1 to add a years tolerance either side
                 query.Append($"&from_year={fromYear}&to_year={toYear}");
                 uri.Query = query.ToString();
-                oprResult= uri.ToString();
+                oprResult = uri.ToString();
             }
             if (oprrecords)
             {
@@ -2956,15 +2960,15 @@ namespace FTAnalyzer
                 query.Append($"&surname={HttpUtility.UrlEncode(individual.Surname)}&surname_so=soundex");
                 if (individual.Forename != "?" && individual.Forename.ToUpper() != Individual.UNKNOWN_NAME)
                     query.Append($"&forename={HttpUtility.UrlEncode(individual.Forename)}&forename_so=syn");
-                if(st == SearchType.MARRIAGE && spouse != null)
+                if (st == SearchType.MARRIAGE && spouse != null)
                     query.Append($"&spouse_name={HttpUtility.UrlEncode(spouse.Surname)}&spouse_name_so=fuzzy");
-                int fromYear = Math.Max(factdate.StartDate.Year -1, 1553);
+                int fromYear = Math.Max(factdate.StartDate.Year - 1, 1553);
                 int toYear = Math.Min(factdate.EndDate.Year + 1, 1854);
                 query.Append($"&from_year={fromYear}&to_year={toYear}");
                 uri.Query = query.ToString();
                 statutoryResult = uri.ToString();
             }
-            return new Tuple<string, string>(oprResult,statutoryResult);
+            return new Tuple<string, string>(oprResult, statutoryResult);
         }
 
         string BuildFamilySearchQuery(SearchType st, Individual individual, FactDate factdate)
@@ -3129,9 +3133,9 @@ namespace FTAnalyzer
         //        Host = "www.gro.gov.uk",
         //        Path = "gro/content/certificates/indexes_search.asp"
         //    };
-            
 
-            
+
+
         //    if (st.Equals(SearchType.BIRTH))
         //        query.Append("gl=BMD_BIRTH&");
         //    if (st.Equals(SearchType.DEATH))
@@ -3158,7 +3162,7 @@ namespace FTAnalyzer
         //        AppendYearandRange(factdate, query, "msgdy=", "msgdp=", false);
         //        query.Append("&msgdy_x=1");
         //    }
-            
+
         //    return uri.ToString();
         //}
 
@@ -3197,9 +3201,9 @@ namespace FTAnalyzer
             }
         }
 
-#endregion
+        #endregion
 
-#region Geocoding
+        #region Geocoding
 
         public static void WriteGeocodeStatstoRTB(string title, IProgress<string> outputText)
         {
@@ -3233,9 +3237,9 @@ namespace FTAnalyzer
             }
         }
 
-#endregion
+        #endregion
 
-#region Relationship Groups
+        #region Relationship Groups
         public static List<Individual> GetFamily(Individual startIndividiual)
         {
             List<Individual> results = new List<Individual>();
@@ -3284,7 +3288,7 @@ namespace FTAnalyzer
         public static List<Individual> GetDescendants(Individual startIndividual)
         {
             List<Individual> results = new List<Individual>();
-            Dictionary<string,Individual> processed = new Dictionary<string, Individual>();
+            Dictionary<string, Individual> processed = new Dictionary<string, Individual>();
             Queue<Individual> queue = new Queue<Individual>();
             results.Add(startIndividual);
             queue.Enqueue(startIndividual);
@@ -3317,101 +3321,758 @@ namespace FTAnalyzer
         public static List<Individual> GetAllRelations(Individual ind) => GetFamily(ind).Union(GetAncestors(ind).Union(GetDescendants(ind))).ToList();
         #endregion
 
-#region Duplicates Processing
-        int progressMaximum;
-        int threadProgress;
+        #region Duplicates Processing
 
-        public SortableBindingList<IDisplayDuplicateIndividual> GenerateDuplicatesList(int value, IProgress<int> progress, IProgress<int> maximum, CancellationToken ct)
+        int progressMaximum;
+        int totalProgress;
+        int numDuplicatesFound;
+        int iCurrentPercentage;
+
+        
+        // this array with Extra c.q. replacement fields is global to avoid additonal functions parameters inside loops.
+        // TODO: folded this code into Indivual.cs, replacing the metaphone strings with meta4 values.
+        Extra[] aExtra = null;
+
+        void InitExtra(Individual[] aind)
         {
-            //log.Debug("FamilyTree.GenerateDuplicatesList");
-            if (duplicates != null)
+
+            int numIndi = aind.Count();
+
+            aExtra = new Extra[numIndi];
+            Debug.Assert(numIndi == aExtra.Length);
+
+            for (int i = 0; i < numIndi; i++)
             {
-                maximum.Report(MaxDuplicateScore());
-                return BuildDuplicateList(value); // we have already processed the duplicates since the file was loaded
-            }
-            duplicates = new ConcurrentBag<DuplicateIndividual>();
-            progressMaximum = individuals.Count;
-            progress.Report(0);
-            try
-            {
-                IdentifyDuplicates(progress, individuals, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                progress.Report(0);
-                maximum.Report(10);
-                duplicates = null;
-                return null;
-            }
-            maximum.Report(MaxDuplicateScore());
-            DeserializeNonDuplicates();
-            return BuildDuplicateList(value);
+                aExtra[i].m4For = InitMeta4(aind[i].ForenameMetaphone);
+                aExtra[i].m4Sur = InitMeta4(aind[i].SurnameMetaphone);
+
+                FactDate fd = aind[i].BirthDate;
+                aExtra[i].jdStart = DateToJD(fd.StartDate);
+                aExtra[i].jdEnd = DateToJD(fd.EndDate);
+            };
         }
 
+        /* TODO: move this code into separate file Meta4.cs
+         */
+
+        // meta union defined here in FamilyTree.cs to keep changes local to this file.
+        // It should be filtered up to the Individual definition to save both space and runtime.
+        // using System.Runtime.interopServices ;
+
+        /* Comceptually
+                [StructLayout(LayoutKind.Explicit, Size = 8)]
+                public struct meta4
+                {
+                    [FieldOffset(0)] public readonly UInt32 u;
+                    [FieldOffset(0)] public byte[4]  s      ;
+                }
+
+            practically, this code simply uses Uint32
+        */
+
+        UInt32 InitMeta4(string sz)
+        {
+            UInt32 u = 0;
+
+            int strlen = sz.Length;
+            for (int i = 0; i < 4; i++)
+            {
+                u <<= 8;
+                if (i < strlen) u += (byte)sz[i];
+            };
+            return u;
+        }
+
+        // put m4Sur first; this is what we sort on.
+        [StructLayout(LayoutKind.Explicit, Size = 16)]
+        public struct Extra : IComparable<Extra>
+        {
+            [FieldOffset(0)] public UInt32 m4Sur;
+            [FieldOffset(4)] public UInt32 m4For;
+            [FieldOffset(8)] public Int32 jdStart;
+            [FieldOffset(12)] public Int32 jdEnd;
+
+            // sort non-decreasing (increasing), on both m4Sur and m4For
+            // sorting on m4Su group by surname, having m4For sorted as well allows additional optimisation
+            public int CompareTo(Extra exOther)
+            {
+                Int32 iVal = (Int32)this.m4Sur - (Int32)exOther.m4Sur;
+                if (0 == iVal)
+                {
+                    iVal = (Int32)this.m4For - (Int32)exOther.m4For;
+                    if ( 0 == iVal)
+                    {
+                        iVal = this.jdStart - exOther.jdStart;
+                        if ( 0 == iVal )
+                        {
+                            iVal= this.jdEnd - exOther.jdEnd;
+                        };
+                    };
+
+                };
+                return iVal;
+            }
+        };
+
+        /* TODO: moves this code into separate file JulianDay.cs
+         */
+
+        static UInt16[] aCumulativeDays = new UInt16[]
+        {
+              0   // Month = 0  : -92 (Should not be accessed by algorithm)
+          ,   0   // Month = 1  : -61 (Should not be accessed by algorithm)
+          ,   0   // Month = 2  : -31 (Should not be accessed by algorithm)
+          ,   0   // Month = 3  (March)
+          ,  31   // Month = 4  (April)
+          ,  61   // Month = 5  (May)
+          ,  92   // Month = 6  (June)
+          , 122   // Month = 7  (July)
+          , 153   // Month = 8  (August)
+          , 184   // Month = 9  (September)
+          , 214   // Month = 10 (October)
+          , 245   // Month = 11 (November)
+          , 275   // Month = 12 (December)
+          , 306   // Month = 13 (January, next year)
+          , 337   // Month = 14 (February, next year)
+        };
+        // BUG: this date to JD conversion assumes the Gregorian Calendar.
+        // That defect hardly matters given the way the julian day is used here (compare to each other), but should be fixed when use of jd is folded into Individual
+        // BUG: function has not been verified. This too hardly  matters given how it is used here.
+        static private Int32 DateToJD(Int16 year, UInt16 month, UInt16 day)
+        {
+            Int32 jd = 0;
+
+            Int16 Y = year;
+            UInt16 M = month;
+            UInt16 D = day;
+            Int16 B;
+
+            // a few guards aginast the worst nonense
+            if (Y < -4713) return 0;
+            if (M > 12) return 0;
+            if (D > 31) return 0;
+
+
+            // calculation uses year starting in March
+            if (2 < M)
+            {
+                Y--;
+            }
+            else
+            {
+                M += 12;
+            };
+            Debug.Assert(M < aCumulativeDays.Length);
+
+            B = (Int16)(2 - (Y / 100) + (Y / 100) / 4);
+
+            jd = (Y + 4716);
+            jd += (jd * 365) + jd / 4;
+            jd += aCumulativeDays[M];
+            jd += D;
+            jd += B;
+            jd -= 1524;
+
+            return jd;
+        }
+
+        static private Int32 DateToJD(DateTime dt)
+        {
+            Int32 jd = 0;
+
+            Int16 Y = (Int16)dt.Year;
+            UInt16 M = (UInt16)dt.Month;
+            UInt16 D = (UInt16)dt.Day;
+            Int16 B;
+
+            // calculation uses year starting in March
+            if (2 < M)
+            {
+                Y--;
+            }
+            else
+            {
+                M += 12;
+            };
+            Debug.Assert(M < aCumulativeDays.Length);
+
+            B = (Int16)(2 - (Y / 100) + (Y / 100) / 4);
+
+            jd = (Y + 4716);
+            jd += (jd * 365) + jd / 4;
+            jd += aCumulativeDays[M];
+            jd += D;
+            jd += B;
+            jd -= 1524;
+
+            return jd;
+        }
+
+        ulong FactDateDistanceSquared(FactDate fdLeft, FactDate fdRight)
+        {
+            long startDiff = ((fdLeft.StartDate.Year - fdRight.StartDate.Year) * 12) + (fdLeft.StartDate.Month - fdRight.StartDate.Month);
+            long endDiff = ((fdLeft.EndDate.Year - fdRight.EndDate.Year) * 12) + (fdLeft.EndDate.Month - fdRight.EndDate.Month);
+            ulong diffSquared = (ulong)(startDiff * startDiff) + (ulong)(endDiff * endDiff);
+
+            return diffSquared;
+        }
+
+        UInt32 JDDinstanceSquared(Extra exLeft, Extra exRight)
+        {
+            Int32 startDiff = exLeft.jdStart - exRight.jdStart; startDiff /= 30;
+            Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
+
+            UInt32 diffSquared = (UInt32)(startDiff * startDiff) + (UInt32)(endDiff * endDiff);
+            return diffSquared;
+        }
+
+        /* end of JulianDay.cs */
+
+        // partitionting stuff
+        int MinIndiToPartition = 4096; // 2^12  // minimum number of INDI require to partition at all
+        struct Partition
+        {
+            public int iFirst;
+            public int iLast;
+        }
+
+        struct Partitions
+        {
+            public int Count;
+            public Partition[] api;
+        }
+
+
+        // This routine partitions numIndi invidiuals into equally sized partions
+        Partitions DumbIndiPartitioner(int numIndi, int numThreads)
+        {
+            Partitions parts;
+
+            Debug.Assert(0 != numThreads);
+
+            if (1 >= numIndi)
+            {
+                parts.Count = 0;
+                parts.api = null;
+                return parts;
+            };
+            Debug.Assert(1 < numIndi);
+
+            if (MinIndiToPartition >= numIndi)
+            {
+                parts.Count = 1;
+                parts.api = new Partition[1];
+                parts.api[0].iFirst = 0;
+                parts.api[0].iLast = numIndi - 1;
+                return parts;
+            }
+            Debug.Assert(MinIndiToPartition < numIndi);
+
+            parts.Count = numThreads;
+            parts.api = new Partition[numThreads];
+
+            int iFirst = 0;
+            int iLast;
+            int sizePartition = numIndi / numThreads;
+            for (int i = 0; i < numThreads; i++)
+            {
+
+                parts.api[i].iFirst = iFirst;
+                iLast = iFirst + sizePartition;
+
+                parts.api[i].iLast = iLast;
+                iFirst = iLast + 1;
+            };
+            parts.api[numThreads - 1].iLast = numIndi - 1;
+
+            return parts;
+        }
+
+        // This routine routine partitions numIndi Individuals for straightforward everyone to everyone comparison
+        // it creates unequal partitions such that all partitions will perform roughly equal amount of comparisions
+        // This routine is designed for regular PCs with processors like an i7, not for massively parallal systems
+        Partitions SmartIndiPartitioner(int numIndi, int numThreads)
+        {
+            Partitions parts;
+
+            Debug.Assert(0 != numThreads);
+
+            if (1 >= numIndi)
+            {
+                parts.Count = 0;
+                parts.api = null;
+                return parts;
+            };
+            Debug.Assert(1 < numIndi);
+
+            if (MinIndiToPartition >= numIndi)
+            {
+                parts.Count = 1;
+                parts.api = new Partition[1];
+                parts.api[0].iFirst = 0;
+                parts.api[0].iLast = numIndi - 1;
+                return parts;
+            }
+            Debug.Assert(MinIndiToPartition < numIndi);
+
+            parts.Count = numThreads;
+            parts.api = new Partition[numThreads];
+
+            // each thread compares iFirst...iLast to iFirst...numIndi-1
+            // this calculation divides the work into unequal partitions doing roughly the sasme amount of work
+            // result of the calculation is iFirst...iLast  for each thread.
+            long numTotalComparisons = (long)((numIndi + 1) * (long)numIndi) / 2;
+            long numComparisonsPerThread = (numTotalComparisons + (numThreads - 1)) / numThreads; // round up, not down
+
+
+            int iFirst = 0;
+            int iLast;
+            for (int i = 0; i < numThreads; i++)
+            {
+
+                parts.api[i].iFirst = iFirst;
+
+                // unrolled loop calculating approximations, using third approximation.
+                int numIndiLeft = (numIndi - iFirst);
+                int sizePartition;
+                int numComparisonsPerTwo = 2 * (numIndiLeft - 1);
+                {
+
+                    sizePartition = (int)((numComparisonsPerThread * 2) / numComparisonsPerTwo);
+
+                    numComparisonsPerTwo = 2 * numIndiLeft - sizePartition;
+                    sizePartition = (int)((numComparisonsPerThread * 2) / numComparisonsPerTwo);
+
+                    numComparisonsPerTwo = 2 * numIndiLeft - sizePartition;
+                    sizePartition = (int)((numComparisonsPerThread * 2) / numComparisonsPerTwo);
+                };
+
+                iLast = iFirst + sizePartition;
+                parts.api[i].iLast = iLast;
+                iFirst = iLast + 1;
+            };
+            parts.api[numThreads - 1].iLast = numIndi - 1;
+
+            Debug.Write("partitions of ");
+            Debug.Write(numIndi);
+            Debug.Write(" items over ");
+            Debug.Write(numThreads);
+            Debug.WriteLine(" logical CPUs.");
+
+            Debug.Write(numTotalComparisons);
+            Debug.Write(" comparison divided over ");
+            Debug.Write(numThreads);
+            Debug.Write(" threads averages ");
+            Debug.Write(numTotalComparisons / numThreads);
+            Debug.WriteLine(" comparisons per thread.");
+
+            for (int i = 0; i < numThreads; i++)
+            {
+                int sizePartition = parts.api[i].iLast - parts.api[i].iFirst + 1;
+                long numComparisons = (long)(2 * numIndi - parts.api[i].iLast - parts.api[i].iFirst - 2) * sizePartition / 2;
+
+
+                Debug.Write(i);
+                Debug.Write(" : ");
+                Debug.Write(parts.api[i].iFirst);
+                Debug.Write("..");
+                Debug.Write(parts.api[i].iLast);
+                Debug.Write("; ");
+                Debug.Write(sizePartition);
+                Debug.Write(" items, ");
+                Debug.Write(numComparisons);
+                Debug.WriteLine(" comparisons.");
+            }
+
+            return parts;
+        }
+
+        
+        void ProgressReporter(IProgress<int> progress, CancellationToken ct)
+        {
+            int iProgress = 0;
+            while (iProgress < progressMaximum)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                iProgress = totalProgress; // take snapshot, use that snapshot, do not keep accessing the global variable
+
+                if (iProgress > progressMaximum) break;
+
+                int iPercentage = (100 * iProgress) / progressMaximum;
+
+                if (iPercentage > iCurrentPercentage)
+                {
+                    iCurrentPercentage = iPercentage;
+                    progress.Report(iPercentage);
+                }
+
+                Task.Delay(1000);
+            }
+
+            progress.Report(100);
+        }
+
+        void MagicPartitionedIdentifyDuplicates(Individual[] aind, int iFirst, int iLast, CancellationToken ct)
+        {
+            int numIndi = aind.Length;
+            int localProgress = 0;
+            long numInner = 0;
+            long numReport = 0x000FFFL; // 2^16=1 == 65.535
+
+            Debug.Assert(0 != numIndi);
+            Debug.Assert(0 <= iFirst);
+            Debug.Assert(iFirst <= iLast);
+            Debug.Assert(iLast < numIndi);
+
+#if DEBUG
+            // the aExtra array must be sorted in non-decreasing (increasing) order
+            // this check guards against forgetting to fulfill the precondition of the array be sorted.
+            for (int i = iFirst; i <= iLast; i++)
+            {
+
+                int j = i + 1;
+                if (j == numIndi) break;
+
+                Extra exLeft = aExtra[i];
+                Extra exRight = aExtra[j];
+
+                Debug.Assert(exLeft.m4Sur <= exRight.m4Sur);
+
+                if (exLeft.m4Sur == exRight.m4Sur)
+                {
+                    Debug.Assert(exLeft.m4For <= exRight.m4For);
+                };
+            };
+#endif
+
+            for (int i = iFirst; i <= iLast; i++)
+            {
+                Individual indLeft = aind[i];
+                Extra exLeft = aExtra[i];
+
+                for (int j = i + 1; j < numIndi; j++)
+                {
+                    numInner++;
+
+                    Extra exRight = aExtra[j];
+
+                    if (exLeft.m4Sur != exRight.m4Sur) break;  // no long longer m4For match; go to next surname
+                   
+                    Debug.Assert(exLeft.m4For <= exRight.m4For); // when the m4Sur are the same, the m4For are sorted
+
+                    if (exLeft.m4For < exRight.m4For) continue;
+
+                    // at this point, the meta4 for both the surname and the given name match (and the jdStart are sorted)
+
+                    Individual indRight = aind[j];
+
+                    // if (Individual.UNKNOWN_NAME == indLeft.Name) continue;
+                    // if (Individual.UNKNOWN_NAME == indRight.Name) continue;
+                    if (0 == indLeft.Name.Length) continue;
+                    if (0 == indRight.Name.Length) continue;
+
+                    // this bit of code is an inlined version of JDDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
+                    // the julian day number provides the distance in days instead of months (so max dinstance of 5 months becomes 153 days, and 153^2 = 23409).
+                    Int32 bgnDiff = exLeft.jdStart - exRight.jdStart; bgnDiff /= 30;
+                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
+                    UInt32 bgnDiffSquared = (UInt32)(bgnDiff * bgnDiff);
+                    UInt32 endDiffSquared = (UInt32)(endDiff * endDiff);
+                    UInt32 diffSquared = bgnDiffSquared + endDiffSquared;
+                    if (25 < diffSquared) continue;
+
+                    var test = new DuplicateIndividual(indLeft, indRight);
+                    if (test.Score > 0)
+                    {
+                        buildDuplicates.Add(test);
+                        Interlocked.Increment(ref numDuplicatesFound);
+                    };
+                };
+
+                localProgress++;
+                if (numInner > numReport)
+                {
+                    // report progress
+                    if (ct.IsCancellationRequested) return;
+                    Interlocked.Add(ref totalProgress, localProgress);
+                    numInner = 0;
+                    localProgress = 0;
+                };
+            };
+
+            Interlocked.Add(ref totalProgress, localProgress);
+        }
+
+        void RegularPartionedIdentifyDuplicates(Individual[] aind, int iFirst, int iLast, CancellationToken ct)
+        {
+            int numIndi = aind.Count();
+
+            int localProgress = 0;
+            long numInner = 0;
+            //     long MASK000fFFFF   = 0x000FFFFFL ; // 2^20-1 = 1.048.575
+            long MASKFFF00000 = 0xFFF00000L; // look at the high bits only
+
+            Debug.Assert(0 <= iFirst);
+            Debug.Assert(iFirst <= iLast);
+            Debug.Assert(iLast < numIndi);
+
+            Debug.Assert(aExtra.Length == aind.Count());
+
+            for (int i = iFirst; i <= iLast; i++)  // notice <= instead of <
+            {
+                var indLeft = aind[i];
+                var exLeft = aExtra[i];
+
+                for (int j = i + 1; j < numIndi; j++)
+                {
+                    var indRight = aind[j];
+                    var exRight = aExtra[j];
+
+                    numInner++;
+
+                    // comparisons ignore sex now; comparing everyone with everyone
+                    // the original if condition was hard to read correctly, this code is less likely to be misunderstood
+                    // the original code compared "standardidsed names"; that was superfluous as we are already using metaphone
+                    // the original code calculated a distance using Pytharogas, this code uses the square of the distance, no Sqrt() operation necessary
+
+                    if (0 == indLeft.Name.Length) continue;
+                    if (0 == indRight.Name.Length) continue;
+
+                    if (exLeft.m4Sur != exRight.m4Sur) continue;
+                    if (exLeft.m4For != exRight.m4For) continue;
+
+                    // this bit of code is an inlined version of JDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
+                    // the julian day has the distance in days instead of months; so max dinstance of 5 months becomes 153 days, and 153^2 = 23409.
+                    Int32 startDiff = exLeft.jdStart - exRight.jdStart; startDiff /= 30;
+                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
+                    UInt32 diffSquared = (UInt32)(startDiff * startDiff) + (UInt32)(endDiff * endDiff);
+                    if (25 < diffSquared) continue;
+
+                    var test = new DuplicateIndividual(indLeft, indRight);
+                    if (test.Score > 0)
+                    {
+                        buildDuplicates.Add(test);
+                        Interlocked.Increment(ref numDuplicatesFound);
+                    };
+                };
+
+                localProgress++;
+                if (0 == (MASKFFF00000 & numInner)) continue;
+
+                // report progress
+                if (ct.IsCancellationRequested) return;
+                Interlocked.Add(ref totalProgress, localProgress);
+                numInner = 0;
+                localProgress = 0;
+            };
+
+            Interlocked.Add(ref totalProgress, localProgress);
+        }
+
+
+        // BUG: code does handle the case of a GEDCOM file with zero INDI records.
+        // BUG: parameter value needs a better name. Not clear at all what it is for.
+        public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList
+        (
+            int value, 
+            IProgress<int> progress,
+            IProgress<int> maximum, 
+            CancellationToken ct
+        )
+        {
+            //log.Debug("FamilyTree.GenerateDuplicatesList");
+
+            bool bMetaSorted = true;
+            
+            if (buildDuplicates != null)
+            {
+                maximum.Report(MaxDuplicateScore());
+                return BuildDuplicateList(value, progress); // we have already processed the duplicates since the file was loaded
+            }
+            buildDuplicates = new ConcurrentBag<DuplicateIndividual>();
+
+            // no more male / female split, but a single list for all genders.
+            // no longer use ILst, but Array; we don't need any of the list features, we only need performance for a fixed-size array
+            Individual[] aind = individuals.ToArray();
+            int numIndi = aind.Count();
+            Debug.Assert(0 != numIndi);
+
+            InitExtra(aind);
+            Debug.Assert(aind.Length == aExtra.Length);
+
+            progressMaximum = individuals.Count();
+            totalProgress = 0;
+            iCurrentPercentage = 0;
+            // Debug.Assert(numIndi == progressMaximum) ;
+
+            progress.Report(0);
+
+            int numThreads = Environment.ProcessorCount;
+
+            if (bMetaSorted)
+            {
+                Array.Sort(aExtra, aind);
+
+                Partitions parts = DumbIndiPartitioner(numIndi, numThreads);
+                Debug.Assert(0 != parts.Count);
+
+                Task[] tasks = new Task[parts.Count + 1];
+                try
+                {
+                    for (int i = 0; i < parts.Count; i++)
+                    {
+                        var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
+                        tasks[j] = Task.Run(() => { MagicPartitionedIdentifyDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ct); }, ct);
+                    };
+                    // we do not wait on the progress reporter, only on the workers
+                    tasks[parts.Count] = Task.Run(() => ProgressReporter(progress, ct), ct);
+
+                    await Task.WhenAll(tasks).ConfigureAwait(true);
+                    Debug.Assert(numIndi == totalProgress);
+                }
+                catch (OperationCanceledException)
+                {
+                    progress.Report(0);
+                    maximum.Report(10);
+                    buildDuplicates = null;
+                    return null;
+                };
+                maximum.Report(MaxDuplicateScore());
+                DeserializeNonDuplicates();
+                return BuildDuplicateList(value, progress);
+            }
+            else
+            {
+                Partitions parts = SmartIndiPartitioner(numIndi, numThreads);
+                Debug.Assert(0 != parts.Count);
+
+                Task[] tasks = new Task[parts.Count + 1];
+                try
+                {
+                    for (int i = 0; i < parts.Count; i++)
+                    {
+                        var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
+                        tasks[j] = Task.Run(() => { RegularPartionedIdentifyDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ct); }, ct);
+                    };
+                    tasks[parts.Count] = Task.Run(() => ProgressReporter(progress, ct), ct);
+
+                    await Task.WhenAll(tasks).ConfigureAwait(true);
+                }
+                catch (OperationCanceledException)
+                {
+                    progress.Report(0);
+                    maximum.Report(10);
+                    buildDuplicates = null;
+                    return null;
+                }
+                maximum.Report(MaxDuplicateScore());
+                DeserializeNonDuplicates();
+                return BuildDuplicateList(value, progress);
+            };
+
+        }
+
+
+        // BUG: this is incredibly inefficient. You are sorting the result anyway. Sort into an array, then retrieve the highest score.
         int MaxDuplicateScore()
         {
             int score = 0;
-            foreach (DuplicateIndividual dup in duplicates)
+            foreach (DuplicateIndividual dup in buildDuplicates)
             {
-                if (dup.Score > score)
+                if (dup != null && dup.Score > score)
                     score = dup.Score;
             }
             return score;
         }
 
-        void IdentifyDuplicates(IProgress<int> progress, IList<Individual> enumerable, CancellationToken ct)
+        // ABANDONED APPROACH. CODE CAN BE DELETED
+        // Using Parallel.For for the outer loop inside the IdentifyDuplicates() routine results in simpler code, but uses massive amounts of memory
+        // Parallel.For() internally creates multiple tasks, so this routine is at times competing with itself for access to variables
+        // Hence the use of of ConccurrentBag() for collecting duplicates, and InterlockedIncrement() for incremeting the progress counter
+        // we <em>cannot</em> simply assign outer loop index i to totallProgrees, as Parallel.For() makes no garantuee about execution order whatsoever
+        // also tried using a .NET range partitioner, like so
+        //
+        //  var rangePartitioner = Partitioner.Create(0, count, ChunkSize);
+        //
+        //  ParallelOptions po = new ParallelOptions();
+        //  po.MaxDegreeOfParallelism = Environment.ProcessorCount;
+        //
+        //  Parallel.ForEach(rangePartitioner, po, range =>
+        //  {
+        //        IdentifyPartitionDuplicates(liIndi, range.Item1, range.Item2, ct);
+        //  }
+        // This should save overhdead and be faster, yet turned out to be slower.
+        void IdentifyAllDuplicatesInParallel(IList<Individual> liIndi, CancellationToken ct)
         {
             //log.Debug("FamilyTree.IdentifyDuplicates");
-            var count = enumerable.Count;
-            Parallel.For(0, count, i =>
+            int count = liIndi.Count;
+
+            ParallelOptions po = new ParallelOptions();
+            po.MaxDegreeOfParallelism = Environment.ProcessorCount;
+
+            // parallel variation of: for ( int i = 0 ; i <= count ; i ++ ) 
+            Parallel.For(0, count, po, i =>
             {
-                var indA = enumerable[i];
+                var indLeft = liIndi[i];
 
                 for (int j = i + 1; j < count; j++)
                 {
-                    var indB = enumerable[j];
+                    var indRight = liIndi[j];
 
-                    if (indA.GenderMatches(indB) && indA.Name != Individual.UNKNOWN_NAME && indB.Name != Individual.UNKNOWN_NAME)
+                    // removed condition indLeft.GenderMatches(indRight) ; all comparisons now ignore sex.
+                    if (indLeft.Name != Individual.UNKNOWN_NAME && indRight.Name != Individual.UNKNOWN_NAME)
                     {
-                        if (indA.SurnameMetaphone.Equals(indB.SurnameMetaphone) &&
-                            (indA.ForenameMetaphone.Equals(indB.ForenameMetaphone) || indA.StandardisedName.Equals(indB.StandardisedName)) &&
-                            indA.BirthDate.Distance(indB.BirthDate) < 5)
+                        if (indLeft.SurnameMetaphone.Equals(indRight.SurnameMetaphone) &&
+                            (indLeft.ForenameMetaphone.Equals(indRight.ForenameMetaphone) || indLeft.StandardisedName.Equals(indRight.StandardisedName)) &&
+                            indLeft.BirthDate.Distance(indRight.BirthDate) < 5)
                         {
-                            var test = new DuplicateIndividual(indA, indB);
+                            var test = new DuplicateIndividual(indLeft, indRight);
                             if (test.Score > 0)
-                                duplicates.Add(test);
+                            {
+                                buildDuplicates.Add(test);
+                                Interlocked.Increment(ref numDuplicatesFound);
+                            }
                         }
                     }
                 }
 
-                ct.ThrowIfCancellationRequested();
-                Interlocked.Increment(ref threadProgress);
-                if (threadProgress % 10 == 0)
-                {
-                    int val = Math.Min(progressMaximum, 100 * threadProgress / progressMaximum);
-                    progress.Report(val);
-                }
-            });
+                // <em>cannot</em> simply assign outer loop index i to totallProgrees, as Parallel.For() makes no garantuee about execution order whatsoever
+                // locked-incrementing a shared counter is the standard technique for tracking progress
+                Interlocked.Increment(ref totalProgress);
+
+                po.CancellationToken.ThrowIfCancellationRequested();
+
+            }); // Parallel.For
         }
 
-        public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList(int minScore)
+        public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList(int minScore, IProgress<int> progress)
         {
-            //log.Debug("FamilyTree.BuildDuplicateList");
-            //if (duplicates is null)
-                //log.Error("BuildDuplicateList called with null duplicates");
-
             var select = new SortableBindingList<IDisplayDuplicateIndividual>();
+            long numDuplicates = buildDuplicates.Count;
+            long numProcessed = 0;
+            iCurrentPercentage = 0;
+            progress.Report(0);
             if (NonDuplicates is null)
                 DeserializeNonDuplicates();
-            foreach (DuplicateIndividual dup in duplicates)
+            foreach (DuplicateIndividual dup in buildDuplicates)
             {
                 if (dup.Score >= minScore)
                 {
                     var dispDup = new DisplayDuplicateIndividual(dup);
                     var toCheck = new NonDuplicate(dispDup);
                     dispDup.IgnoreNonDuplicate = NonDuplicates.ContainsDuplicate(toCheck);
-                    if (!select.ContainsDuplicate(dispDup) && !(dispDup.IgnoreNonDuplicate && GeneralSettings.Default.HideIgnoredDuplicates))
+                    if (!(GeneralSettings.Default.HideIgnoredDuplicates && dispDup.IgnoreNonDuplicate))
                         select.Add(dispDup);
+                }
+                numProcessed++;
+                if(numProcessed % 20 == 0)
+                {
+                    var val = (int)(100 * numProcessed / numDuplicates);
+                    if (val > iCurrentPercentage)
+                    {
+                        iCurrentPercentage = val;
+                        progress.Report(val);
+                    }
                 }
             }
             return select;
@@ -3419,7 +4080,6 @@ namespace FTAnalyzer
 
         public void SerializeNonDuplicates()
         {
-            //log.Debug("FamilyTree.SerializeNonDuplicates");
             try
             {
                 IFormatter formatter = new BinaryFormatter();
@@ -3431,13 +4091,13 @@ namespace FTAnalyzer
             }
             catch
             {
-               // log.Error($"Error {e.Message} writing NonDuplicates.xml");
+                // log.Error($"Error {e.Message} writing NonDuplicates.xml");
             }
         }
 
         public void DeserializeNonDuplicates()
         {
-           // log.Debug("FamilyTree.DeserializeNonDuplicates");
+            // log.Debug("FamilyTree.DeserializeNonDuplicates");
             try
             {
                 IFormatter formatter = new BinaryFormatter();
@@ -3454,13 +4114,13 @@ namespace FTAnalyzer
             }
             catch
             {
-              //  log.Error("Error " + e.Message + " reading NonDuplicates.xml");
+                //  log.Error("Error " + e.Message + " reading NonDuplicates.xml");
                 NonDuplicates = new List<NonDuplicate>();
             }
         }
-#endregion
+        #endregion
 
-#region Report Issues
+        #region Report Issues
         public HashSet<string> UnrecognisedCensusReferences()
         {
             var result = new HashSet<string>();
@@ -3522,7 +4182,7 @@ namespace FTAnalyzer
 
         #endregion
 
-#region Today
+        #region Today
         public void AddTodaysFacts(DateTime chosenDate, bool wholeMonth, int stepSize, IProgress<int> progress, IProgress<string> outputText)
         {
             string dateDesc;
@@ -3678,14 +4338,14 @@ namespace FTAnalyzer
         }
         #endregion
 
-#region WorldWars
+        #region WorldWars
 
         public IEnumerable<IDisplayIndividual> GetWorldWars(Predicate<Individual> filter) => individuals.Filter(ind => ind.IsMale && filter(ind));
         public IEnumerable<IExportIndividual> GetExportWorldWars(Predicate<Individual> filter) => individuals.Filter(ind => ind.IsMale && filter(ind));
 
         #endregion
 
-#region TreeTops
+        #region TreeTops
 
         public IEnumerable<IDisplayIndividual> GetTreeTops(Predicate<Individual> filter) => individuals.Filter(ind => filter(ind));
         public IEnumerable<IExportIndividual> GetExportTreeTops(Predicate<Individual> filter) => individuals.Filter(ind => filter(ind));
