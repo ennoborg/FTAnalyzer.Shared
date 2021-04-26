@@ -1,6 +1,7 @@
 ﻿using FTAnalyzer.Exports;
 using FTAnalyzer.Properties;
 using FTAnalyzer.Utilities;
+using GeneGenie.Gedcom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,16 +49,14 @@ namespace FTAnalyzer
 
         public Family() : this(string.Empty) { }
 
-        public Family(XmlNode node, IProgress<string> outputText)
+        public Family(GedcomFamilyRecord node, IProgress<string> outputText)
             : this(string.Empty)
         {
             if (node != null)
             {
-                XmlNode eHusband = node.SelectSingleNode("HUSB");
-                XmlNode eWife = node.SelectSingleNode("WIFE");
-                FamilyID = node.Attributes["ID"].Value;
-                string husbandID = eHusband?.Attributes["REF"]?.Value;
-                string wifeID = eWife?.Attributes["REF"]?.Value;
+                FamilyID = node.XrefId;
+                string husbandID = node.Husband;
+                string wifeID = node.Wife;
                 Husband = ft.GetIndividual(husbandID);
                 Wife = ft.GetIndividual(wifeID);
                 if (Husband != null && Wife != null)
@@ -69,23 +68,15 @@ namespace FTAnalyzer
 
                 // now iterate through child elements of eChildren
                 // finding all individuals
-                XmlNodeList list = node.SelectNodes("CHIL");
-                foreach (XmlNode n in list)
+                var list = node.Children;
+                foreach (var n in list)
                 {
-                    if (n.Attributes["REF"] != null)
+                    if (n != null)
                     {
-                        Individual child = ft.GetIndividual(n.Attributes["REF"].Value);
+                        Individual child = ft.GetIndividual(n);
                         if (child != null)
                         {
-                            XmlNode fatherNode = n.SelectSingleNode("_FREL");
-                            XmlNode motherNode = n.SelectSingleNode("_MREL");
-                            var father = ParentalRelationship.GetRelationshipType(fatherNode);
-                            var mother = ParentalRelationship.GetRelationshipType(motherNode);
                             Children.Add(child);
-                            var parent = new ParentalRelationship(this, father, mother);
-                            child.FamiliesAsChild.Add(parent);
-                            AddParentAndChildrenFacts(child, Husband, father);
-                            AddParentAndChildrenFacts(child, Wife, mother);
                         }
                         else
                             outputText.Report($"Child not found in family: {FamilyRef}\n");
@@ -93,23 +84,6 @@ namespace FTAnalyzer
                     else
                         outputText.Report($"Child without a reference found in family: {FamilyRef}\n");
                 }
-
-                AddFacts(node, Fact.ANNULMENT, outputText);
-                AddFacts(node, Fact.DIVORCE, outputText);
-                AddFacts(node, Fact.DIVORCE_FILED, outputText);
-                AddFacts(node, Fact.ENGAGEMENT, outputText);
-                AddFacts(node, Fact.MARRIAGE, outputText);
-                AddFacts(node, Fact.MARRIAGE_BANN, outputText);
-                AddFacts(node, Fact.MARR_CONTRACT, outputText);
-                AddFacts(node, Fact.MARR_LICENSE, outputText);
-                AddFacts(node, Fact.MARR_SETTLEMENT, outputText);
-                AddFacts(node, Fact.SEPARATION, outputText);
-                AddFacts(node, Fact.CENSUS, outputText);
-                AddFacts(node, Fact.CUSTOM_EVENT, outputText);
-                AddFacts(node, Fact.CUSTOM_FACT, outputText);
-                AddFacts(node, Fact.REFERENCE, outputText);
-                AddFacts(node, Fact.SEALED_TO_SPOUSE, outputText);
-                AddFacts(node, Fact.UNKNOWN, outputText);
 
                 //TODO: need to think about family facts having AGE tags in GEDCOM
                 if (HasGoodChildrenStatus)

@@ -20,6 +20,7 @@ using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using FTAnalyzer.Controls;
+using GeneGenie.Gedcom;
 
 #if __PC__
 #elif __MACOS__ || __IOS__
@@ -317,13 +318,13 @@ namespace FTAnalyzer
             }
         }
 
-        public void LoadTreeSources(XmlDocument doc, IProgress<int> progress, IProgress<string> outputText)
+        public void LoadTreeSources(GedcomDatabase db, IProgress<int> progress, IProgress<string> outputText)
         {
             // First iterate through attributes of root finding all sources
-            XmlNodeList list = doc.SelectNodes("GED/SOUR");
+            var list = db.Sources;
             int sourceMax = list.Count == 0 ? 1 : list.Count;
             int counter = 0;
-            foreach (XmlNode n in list)
+            foreach (var n in list)
             {
                 var fs = new FactSource(n);
                 sources.Add(fs);
@@ -332,17 +333,16 @@ namespace FTAnalyzer
             outputText.Report($"Loaded {counter} sources.\n");
             progress.Report(100);
             // now get a list of all notes
-            noteNodes = doc.SelectNodes("GED/NOTE");
         }
 
-        public void LoadTreeIndividuals(XmlDocument doc, IProgress<int> progress, IProgress<string> outputText)
+        public void LoadTreeIndividuals(GedcomDatabase db, IProgress<int> progress, IProgress<string> outputText)
         {
             // now iterate through child elements of root
             // finding all individuals
-            XmlNodeList list = doc.SelectNodes("GED/INDI");
+            var list = db.Individuals;
             int individualMax = list.Count;
             int counter = 0;
-            foreach (XmlNode n in list)
+            foreach (var n in list)
             {
                 var individual = new Individual(n, outputText);
                 if (individual.IndividualID is null)
@@ -364,14 +364,14 @@ namespace FTAnalyzer
             progress.Report(100);
         }
 
-        public void LoadTreeFamilies(XmlDocument doc, IProgress<int> progress, IProgress<string> outputText)
+        public void LoadTreeFamilies(GedcomDatabase db, IProgress<int> progress, IProgress<string> outputText)
         {
             // now iterate through child elements of root
             // finding all families
-            XmlNodeList list = doc.SelectNodes("GED/FAM");
+            var list = db.Families;
             int familyMax = list.Count == 0 ? 1 : list.Count;
             int counter = 0;
-            foreach (XmlNode n in list)
+            foreach (var n in list)
             {
                 Family family = new Family(n, outputText);
                 families.Add(family);
@@ -383,7 +383,7 @@ namespace FTAnalyzer
             progress.Report(100);
         }
 
-        public void LoadTreeRelationships(XmlDocument doc, IProgress<int> progress, IProgress<string> outputText)
+        public void LoadTreeRelationships(GedcomDatabase db, IProgress<int> progress, IProgress<string> outputText)
         {
             if (string.IsNullOrEmpty(rootIndividualID))
                 rootIndividualID = individuals[0].IndividualID;
@@ -395,8 +395,6 @@ namespace FTAnalyzer
             SetDataErrorTypes(progress);
             CountUnknownFactTypes(outputText);
             FactLocation.LoadGoogleFixesXMLFile(outputText);
-            LoadGEDCOM_PLAC_Locations(doc.SelectNodes("GED/_PLAC_DEFN/PLAC"), 60, progress, outputText); // Legacy Family Tree
-            LoadGEDCOM_PLAC_Locations(doc.SelectNodes("GED/_PLAC"), 80, progress, outputText); // Family Historian PLAC format
             LoadGeoLocationsFromDataBase(outputText);
             progress.Report(100);
             DataLoaded = true;
