@@ -48,7 +48,6 @@ namespace FTAnalyzer
  //     SortableBindingList<DuplicateIndividual> duplicates; // never used
         ConcurrentBag<DuplicateIndividual> buildDuplicates;
         const int DATA_ERROR_GROUPS = 32;
-        static XmlNodeList noteNodes;
         BigInteger maxAhnentafel;
         Dictionary<string, Individual> individualLookup;
         string rootIndividualID = string.Empty;
@@ -127,17 +126,7 @@ namespace FTAnalyzer
         {
             if (!instance.DocumentLoaded)
                 Console.WriteLine("Looking up XML without document loaded");
-            if (noteNodes is null || reference is null)
-                return string.Empty;
             var result = new StringBuilder();
-            foreach (XmlNode node in noteNodes)
-            {
-                if (node.Attributes["ID"] != null && node.Attributes["ID"].Value == reference.Value)
-                {
-                    result.AppendLine(GetContinuationText(node.ChildNodes));
-                    return result.ToString().Trim();
-                }
-            }
             return string.Empty;
         }
 
@@ -218,7 +207,6 @@ namespace FTAnalyzer
 #if __PC__
             TreeViewHandler.Instance.ResetData();
 #endif
-            noteNodes = null;
             maxAhnentafel = 0;
             FactLocation.ResetLocations();
             individualLookup = new Dictionary<string, Individual>();
@@ -332,7 +320,6 @@ namespace FTAnalyzer
             }
             outputText.Report($"Loaded {counter} sources.\n");
             progress.Report(100);
-            // now get a list of all notes
         }
 
         public void LoadTreeIndividuals(GedcomDatabase db, IProgress<int> progress, IProgress<string> outputText)
@@ -401,33 +388,6 @@ namespace FTAnalyzer
             Loading = false;
         }
 
-        public void CleanUpXML() => noteNodes = null;
-
-        void LoadGEDCOM_PLAC_Locations(XmlNodeList list, int startval, IProgress<int> progress, IProgress<string> outputText)
-        {
-            int max = list.Count;
-            int counter = 0;
-            int value;
-            foreach (XmlNode node in list)
-            {
-                string place = GetText(node, false);
-                XmlNode lat_node = node.SelectSingleNode("MAP/LATI");
-                XmlNode long_node = node.SelectSingleNode("MAP/LONG");
-                if (place.Length > 0 && lat_node != null && long_node != null)
-                {
-                    string lat = lat_node.InnerText;
-                    string lng = long_node.InnerText;
-                    FactLocation loc = FactLocation.GetLocation(place, lat, lng, FactLocation.Geocode.GEDCOM_USER, true, true);
-                    loc.FTAnalyzerCreated = false;
-                    loc.GEDCOMLatLong = true;
-                    if (!loc.IsValidLatLong)
-                        outputText.Report($"'PLAC' record in GEDCOM has Location: {place} with invalid Lat/Long '{lat},{lng}'.");
-                }
-                value = startval + 15 * (counter++ / max);
-                if (value > 100) value = 100;
-                progress.Report(value);
-            }
-        }
         void CreateLostCousinsFacts(IProgress<string> outputText)
         {
             try
