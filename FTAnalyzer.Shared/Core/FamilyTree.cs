@@ -46,6 +46,7 @@ namespace FTAnalyzer
         SortableBindingList<IDisplayLooseInfo> looseInfo;
  //     SortableBindingList<DuplicateIndividual> duplicates; // never used
         ConcurrentBag<DuplicateIndividual> buildDuplicates;
+        public static readonly IFormatProvider CULTURE = new CultureInfo("en-GB", true);
         const int DATA_ERROR_GROUPS = 32;
         static XmlNodeList noteNodes;
         BigInteger maxAhnentafel;
@@ -2000,7 +2001,7 @@ namespace FTAnalyzer
                     }
                     #endregion
                     #region All Facts
-                    FactDate now = new FactDate(DateTime.Now.ToString("dd MMM yyyy"));
+                    FactDate now = new FactDate(DateTime.Now.ToString("dd MMM yyyy", CULTURE));
                     foreach (Fact f in ind.AllFacts)
                     {
                         if (f.FactDate.IsAfter(now))
