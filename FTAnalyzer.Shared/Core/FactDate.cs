@@ -989,11 +989,32 @@ namespace FTAnalyzer
             }
         }
 
+        /* this floating point version replaced with integer version
         public double Distance(FactDate when)
         {
             double startDiff = ((StartDate.Year - when.StartDate.Year) * 12) + (StartDate.Month - when.StartDate.Month);
             double endDiff = ((EndDate.Year - when.EndDate.Year) * 12) + (EndDate.Month - when.EndDate.Month);
             double difference = Math.Sqrt(Math.Pow(startDiff, 2.0) + Math.Pow(endDiff, 2.0));
+            return difference;
+        }
+        */
+
+        /* replaced with DistanceSquared()
+        public long Distance(FactDate when)
+        {
+            long startDiff = ((StartDate.Year - when.StartDate.Year) * 12) + (StartDate.Month - when.StartDate.Month);
+            long endDiff = ((EndDate.Year - when.EndDate.Year) * 12) + (EndDate.Month - when.EndDate.Month);
+            long difference = startDiff * startDiff + endDiff * endDiff;
+            long difference = (long) Math.Sqrt( difference );
+            return difference;
+        }
+        */
+
+        public long DistanceSquared(in FactDate when)
+        {
+            long startDiff  = ((StartDate.Year - when.StartDate.Year) * 12) + (StartDate.Month - when.StartDate.Month);
+            long endDiff    = ((EndDate.Year - when.EndDate.Year) * 12) + (EndDate.Month - when.EndDate.Month);
+            long difference = startDiff * startDiff + endDiff * endDiff;
             return difference;
         }
 

@@ -104,15 +104,18 @@ namespace FTAnalyzer
             if (node.Birth != null && node.Birth.Date != null)
             {
                 FactDate factDate;
+                FactLocation factLocation;
                 try
                 {
-                    factDate = new FactDate(node.Birth.Date.DateString);
+                    factDate = new FactDate(node.Birth.Date?.DateString);
+                    factLocation = new FactLocation(node.Birth.Place?.Name);
                 }
                 catch
                 {
                     factDate = FactDate.UNKNOWN_DATE;
+                    factLocation = FactLocation.BLANK_LOCATION;
                 }
-                AddFact(new Fact(IndividualID, Fact.BIRTH, factDate, FactLocation.BLANK_LOCATION));
+                AddFact(new Fact(IndividualID, Fact.BIRTH, factDate, factLocation));
             }
 
             if (node.Death != null && node.Death.Date != null)

@@ -39,7 +39,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Core\Countries.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\DataError.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\DataErrorGroup.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Core\JulainDayNumbers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\LostCousin.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Core\MetaFour.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Core\SurnamePrefix.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\ColourValues.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayCustomFact.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayDuplicateIndividual.cs" />

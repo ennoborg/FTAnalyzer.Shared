@@ -1,4 +1,4 @@
-﻿using FTAnalyzer.Filters;
+using FTAnalyzer.Filters;
 using FTAnalyzer.Properties;
 using FTAnalyzer.Utilities;
 using System;
@@ -45,9 +45,36 @@ namespace FTAnalyzer
         SortableBindingList<IDisplayLooseDeath> looseDeaths;
         SortableBindingList<IDisplayLooseBirth> looseBirths;
         SortableBindingList<IDisplayLooseInfo> looseInfo;
- //     SortableBindingList<DuplicateIndividual> duplicates; // never used
-        ConcurrentBag<DuplicateIndividual> buildDuplicates;
+
+        //        //     SortableBindingList<DuplicateIndividual> duplicates; // never used
+        //        ConcurrentBag<DuplicateIndividual> buildNamedDuplicates;
+        //        ConcurrentBag<DuplicateIndividual> buildStillbornDuplicates; // BUG: algorithm fills it, but data is not used yet
+        //  List<DuplicateIndividual> globalNamedDuplicates = null;
+        //  List<DuplicateIndividual> globalStillbornDuplicates = null;
+
+        // for minimal locking overhead, we use regular lista and a locking objects
+        // for minimal object size, we use the lightweight DuplicateInfo struct instead of the heave DuplicateIndividual object (approx 1024 bytes)
+        // There two lists and locks; one for regular duplicates, and one for stillborn duplicates (no given name)
+        // There are two global list for each; ..Duplicates is the constructed list, ...DupInfo is used while building it
+        //
+        // even the temporary DupInfo are arrays instead of lists now
+        //       List<DuplicateInfo> globalNamedDupInfo = null;
+        //        List<DuplicateInfo> globalStillDupInfo = null;
+        // These were locks for exclusive access to the array in the worker tasks; no longer ncessary now that the worker tasks return their local lists
+        //      private readonly object lockGlobalNamedDuplictes = new object();
+        //      private readonly object lockGlobalStillDuplictes = new object();
+
+        // the final arrays
+        Duplicate[] globalNamedDuplicates = null;
+        Duplicate [] globalStillDuplicates = null;
+
+        // temporary arrays used in building the final arrays
+        DuplicateInfo[] gaNamedDupInfo = null;
+        DuplicateInfo[] gaStillDupInfo = null;
+
+
         const int DATA_ERROR_GROUPS = 32;
+        static XmlNodeList noteNodes;
         BigInteger maxAhnentafel;
         Dictionary<string, Individual> individualLookup;
         string rootIndividualID = string.Empty;
@@ -126,7 +153,17 @@ namespace FTAnalyzer
         {
             if (!instance.DocumentLoaded)
                 Console.WriteLine("Looking up XML without document loaded");
+            if (noteNodes is null || reference is null)
+                return string.Empty;
             var result = new StringBuilder();
+            foreach (XmlNode node in noteNodes)
+            {
+                if (node.Attributes["ID"] != null && node.Attributes["ID"].Value == reference.Value)
+                {
+                    result.AppendLine(GetContinuationText(node.ChildNodes));
+                    return result.ToString().Trim();
+                }
+            }
             return string.Empty;
         }
 
@@ -201,12 +238,18 @@ namespace FTAnalyzer
             SoloFamilies = 0;
             PreMarriageFamilies = 0;
             ResetLooseFacts();
+
 //          duplicates = null;      // never used
-            buildDuplicates = null;
+//          buildNamedDuplicates = null;
+
+            gaNamedDupInfo = null;
+            gaStillDupInfo = null;
+
             ClearLocations();
 #if __PC__
             TreeViewHandler.Instance.ResetData();
 #endif
+            noteNodes = null;
             maxAhnentafel = 0;
             FactLocation.ResetLocations();
             individualLookup = new Dictionary<string, Individual>();
@@ -1108,7 +1151,7 @@ namespace FTAnalyzer
                 if (birthDate != baseDate)
                     toAdd = baseDate;
             }
-            if (toAdd != null && toAdd != birthDate && toAdd.Distance(birthDate) > 1)
+            if (toAdd != null && toAdd != birthDate && toAdd.DistanceSquared(birthDate) > 1)
             {
                 // we have a date to change and its not the same 
                 // range as the existing death date
@@ -1213,7 +1256,7 @@ namespace FTAnalyzer
                     }
                 }
             }
-            if (toAdd != null && toAdd != deathDate && toAdd.Distance(deathDate) > 1)
+            if (toAdd != null && toAdd != deathDate && toAdd.DistanceSquared(deathDate) > 1)
             {
                 // we have a date to change and its not the same 
                 // range as the existing death date
@@ -1958,7 +2001,7 @@ namespace FTAnalyzer
                     }
                     #endregion
                     #region All Facts
-                    FactDate now = new FactDate(DateTime.Now.ToString("dd MMM yyyy"));
+                    FactDate now = new FactDate(DateTime.Now.ToString("dd MMM yyyy", CULTURE));
                     foreach (Fact f in ind.AllFacts)
                     {
                         if (f.FactDate.IsAfter(now))
@@ -2154,6 +2197,7 @@ namespace FTAnalyzer
         }
 
         public IList<DataErrorGroup> DataErrorTypes { get; private set; }
+        public static readonly IFormatProvider CULTURE = new CultureInfo("en-GB", true);
 
         public static bool FactBeforeBirth(Individual ind, Fact f)
         {
@@ -3286,13 +3330,110 @@ namespace FTAnalyzer
         int numDuplicatesFound;
         int iCurrentPercentage;
 
-        
+        // DONE: This lightweight structure replaces the DuplicateIndiviudual object (estimated 1024 bytes)
+        // it maints the absolute minimum: the array indexes of the duplciates, and their matching score
+        // The code still uses the DUplicateIndividual routines, but these are all static methods now
+        struct DuplicateInfo : IComparable<DuplicateInfo>
+        {
+            public int  iScore;
+            public int  iLeft;
+            public int  iRight;
+            public bool bIsTwin;
+
+            public DuplicateInfo(int iScore, int iLeft, int iRight, bool bIsTwin )
+            {
+                this.iScore = iScore;
+                this.iLeft = iLeft;
+                this.iRight = iRight;
+                this.bIsTwin = bIsTwin;
+            }
+
+            // we sort in descending order, but CompareTo is always defined for ascending order
+            public int CompareTo(DuplicateInfo di)
+            {
+                int iVal = this.bIsTwin ? 1 : -1 ; // twins sort before regular (in this increasing order, list will be shown in decreasing order)
+
+                if (this.bIsTwin == di.bIsTwin)
+                {
+                    iVal = this.iScore - di.iScore;
+                    if (0 == iVal)
+                    {
+                        iVal = this.iLeft - di.iLeft;
+                        if (0 == iVal)
+                        {
+                            iVal = this.iRight - di.iRight;
+                        };
+                    };
+                }
+
+                return iVal;
+            }
+
+        };
+
+        // NOTE: Funny fact: class member of struct are references to the class object, so this is considerably more space efficient than it looks
+        struct Duplicate : IComparable<Duplicate>
+        {
+            public Individual IndLeft ;
+            public Individual IndRight;
+            public int iScore;
+            public bool bIsTwin;
+
+            public Duplicate(ref Individual indLeft, ref Individual indRight, int iScore, bool bIsTwin )
+            {
+                this.IndLeft = indLeft;
+                this.IndRight = indRight;
+                this.iScore = iScore;
+                this.bIsTwin = bIsTwin;
+            }
+
+            // NOTE: we do not need to sort Duplicate, because we sort the results using DuplicateInfo before converting to Duplicate
+            // TODO: expand comparison to sort on m4For and m4Sur once these are part of Individual
+            public int CompareTo(Duplicate dupOther )
+            {
+                int iVal = this.bIsTwin ? 1 : -1;
+
+                if (this.bIsTwin == dupOther.bIsTwin)
+                {
+                    iVal = this.iScore - dupOther.iScore;
+                };
+
+                return iVal;
+            }
+        };
+
+
         // this array with Extra c.q. replacement fields is global to avoid additonal functions parameters inside loops.
-        // TODO: folded this code into Indivual.cs, replacing the metaphone strings with meta4 values.
+        // TODO: fold this code into Indivual.cs, replacing the metaphone strings with meta4 values.
         Extra[] aExtra = null;
+
+
+        // BUG: the current initalisation of SurnaameMetaPhone is faulty; it processes the surname prefix as part of the surname
+        // this code gets the base name first, to calculate the proper value
+        // TODO: move this name splitting code into Indivual to calculate metaphone correctly
+        string GetSurnameMetaphoneString(in Individual ind)
+        {
+            
+            string SurnameMetaphone = null;
+            
+            int PrefixLength = SurnamePrefix.BasenameStart( ind.Surname);
+            if (0 == PrefixLength)
+            {
+                SurnameMetaphone = ind.SurnameMetaphone ;
+            } else
+            {
+                Debug.Assert(PrefixLength <= ind.Surname.Length);
+
+                string BaseName = ind.Surname.Substring(PrefixLength);
+                DoubleMetaphone dm = new DoubleMetaphone(BaseName);
+                SurnameMetaphone = dm.PrimaryKey;
+            };
+            return SurnameMetaphone ;
+        }
 
         void InitExtra(Individual[] aind)
         {
+
 
             int numIndi = aind.Count();
 
@@ -3301,169 +3442,16 @@ namespace FTAnalyzer
 
             for (int i = 0; i < numIndi; i++)
             {
-                aExtra[i].m4For = InitMeta4(aind[i].ForenameMetaphone);
-                aExtra[i].m4Sur = InitMeta4(aind[i].SurnameMetaphone);
+                aExtra[i].m4For = MetaFour.InitMeta4(aind[i].ForenameMetaphone);
+
+                // aExtra[i].m4Sur = MetaFour.InitMeta4(aind[i].SurnamneMetaphone);
+                string SurnameMetaphone = GetSurnameMetaphoneString( aind[i] );
+                aExtra[i].m4Sur = MetaFour.InitMeta4( SurnameMetaphone ) ;
 
                 FactDate fd = aind[i].BirthDate;
-                aExtra[i].jdStart = DateToJD(fd.StartDate);
-                aExtra[i].jdEnd = DateToJD(fd.EndDate);
+                aExtra[i].jdStart = JulianDayNumbers.DateToJD(fd.StartDate);
+                aExtra[i].jdEnd = JulianDayNumbers.DateToJD(fd.EndDate);
             };
-        }
-
-        /* TODO: move this code into separate file Meta4.cs
-         */
-
-        // meta union defined here in FamilyTree.cs to keep changes local to this file.
-        // It should be filtered up to the Individual definition to save both space and runtime.
-        // using System.Runtime.interopServices ;
-
-        /* Comceptually
-                [StructLayout(LayoutKind.Explicit, Size = 8)]
-                public struct meta4
-                {
-                    [FieldOffset(0)] public readonly UInt32 u;
-                    [FieldOffset(0)] public byte[4]  s      ;
-                }
-
-            practically, this code simply uses Uint32
-        */
-
-        UInt32 InitMeta4(string sz)
-        {
-            UInt32 u = 0;
-
-            int strlen = sz.Length;
-            for (int i = 0; i < 4; i++)
-            {
-                u <<= 8;
-                if (i < strlen) u += (byte)sz[i];
-            };
-            return u;
-        }
-
-        // put m4Sur first; this is what we sort on.
-        [StructLayout(LayoutKind.Explicit, Size = 16)]
-        public struct Extra : IComparable<Extra>
-        {
-            [FieldOffset(0)] public UInt32 m4Sur;
-            [FieldOffset(4)] public UInt32 m4For;
-            [FieldOffset(8)] public Int32 jdStart;
-            [FieldOffset(12)] public Int32 jdEnd;
-
-            // sort non-decreasing (increasing), on both m4Sur and m4For
-            // sorting on m4Su group by surname, having m4For sorted as well allows additional optimisation
-            public int CompareTo(Extra exOther)
-            {
-                Int32 iVal = (Int32)this.m4Sur - (Int32)exOther.m4Sur;
-                if (0 == iVal)
-                {
-                    iVal = (Int32)this.m4For - (Int32)exOther.m4For;
-                    if ( 0 == iVal)
-                    {
-                        iVal = this.jdStart - exOther.jdStart;
-                        if ( 0 == iVal )
-                        {
-                            iVal= this.jdEnd - exOther.jdEnd;
-                        };
-                    };
-
-                };
-                return iVal;
-            }
-        };
-
-        /* TODO: moves this code into separate file JulianDay.cs
-         */
-
-        static UInt16[] aCumulativeDays = new UInt16[]
-        {
-              0   // Month = 0  : -92 (Should not be accessed by algorithm)
-          ,   0   // Month = 1  : -61 (Should not be accessed by algorithm)
-          ,   0   // Month = 2  : -31 (Should not be accessed by algorithm)
-          ,   0   // Month = 3  (March)
-          ,  31   // Month = 4  (April)
-          ,  61   // Month = 5  (May)
-          ,  92   // Month = 6  (June)
-          , 122   // Month = 7  (July)
-          , 153   // Month = 8  (August)
-          , 184   // Month = 9  (September)
-          , 214   // Month = 10 (October)
-          , 245   // Month = 11 (November)
-          , 275   // Month = 12 (December)
-          , 306   // Month = 13 (January, next year)
-          , 337   // Month = 14 (February, next year)
-        };
-        // BUG: this date to JD conversion assumes the Gregorian Calendar.
-        // That defect hardly matters given the way the julian day is used here (compare to each other), but should be fixed when use of jd is folded into Individual
-        // BUG: function has not been verified. This too hardly  matters given how it is used here.
-        static private Int32 DateToJD(Int16 year, UInt16 month, UInt16 day)
-        {
-            Int32 jd = 0;
-
-            Int16 Y = year;
-            UInt16 M = month;
-            UInt16 D = day;
-            Int16 B;
-
-            // a few guards aginast the worst nonense
-            if (Y < -4713) return 0;
-            if (M > 12) return 0;
-            if (D > 31) return 0;
-
-
-            // calculation uses year starting in March
-            if (2 < M)
-            {
-                Y--;
-            }
-            else
-            {
-                M += 12;
-            };
-            Debug.Assert(M < aCumulativeDays.Length);
-
-            B = (Int16)(2 - (Y / 100) + (Y / 100) / 4);
-
-            jd = (Y + 4716);
-            jd += (jd * 365) + jd / 4;
-            jd += aCumulativeDays[M];
-            jd += D;
-            jd += B;
-            jd -= 1524;
-
-            return jd;
-        }
-
-        static private Int32 DateToJD(DateTime dt)
-        {
-            Int32 jd = 0;
-
-            Int16 Y = (Int16)dt.Year;
-            UInt16 M = (UInt16)dt.Month;
-            UInt16 D = (UInt16)dt.Day;
-            Int16 B;
-
-            // calculation uses year starting in March
-            if (2 < M)
-            {
-                Y--;
-            }
-            else
-            {
-                M += 12;
-            };
-            Debug.Assert(M < aCumulativeDays.Length);
-
-            B = (Int16)(2 - (Y / 100) + (Y / 100) / 4);
-
-            jd = (Y + 4716);
-            jd += (jd * 365) + jd / 4;
-            jd += aCumulativeDays[M];
-            jd += D;
-            jd += B;
-            jd -= 1524;
-
-            return jd;
         }
 
         ulong FactDateDistanceSquared(FactDate fdLeft, FactDate fdRight)
@@ -3483,6 +3471,38 @@ namespace FTAnalyzer
             UInt32 diffSquared = (UInt32)(startDiff * startDiff) + (UInt32)(endDiff * endDiff);
             return diffSquared;
         }
+
+
+        // put m4Sur first; this is what we sort on.
+        [StructLayout(LayoutKind.Explicit, Size = 16)]
+        public struct Extra : IComparable<Extra>
+        {
+            [FieldOffset(0)] public UInt32 m4Sur;
+            [FieldOffset(4)] public UInt32 m4For;
+            [FieldOffset(8)] public Int32 jdStart;
+            [FieldOffset(12)] public Int32 jdEnd;
+            // sort non-decreasing (increasing), on both m4Sur and m4For
+            // sorting on m4Su group by surname, having m4For sorted as well allows additional optimisation
+                       
+            public int CompareTo(Extra exOther)
+            {
+                Int32 iVal = (Int32)this.m4Sur - (Int32)exOther.m4Sur;
+                if (0 == iVal)
+                {
+                    iVal = (Int32) this.m4For - (Int32)exOther.m4For;
+                    if ( 0 == iVal)
+                    {
+                        iVal = this.jdStart - exOther.jdStart;
+                        if ( 0 == iVal )
+                        {
+                            iVal= this.jdEnd - exOther.jdEnd;
+                        };
+                    };
+
+                };
+                return iVal;
+            }
+        };
 
         /* end of JulianDay.cs */
 
@@ -3665,18 +3685,118 @@ namespace FTAnalyzer
                     progress.Report(iPercentage);
                 }
 
-                Task.Delay(1000);
+                Task.Delay(125);
             }
 
             progress.Report(100);
         }
 
-        void MagicPartitionedIdentifyDuplicates(Individual[] aind, int iFirst, int iLast, CancellationToken ct)
+        // Mostly identical to MagicPartitionedDetectDuplicates(), but designed for each thread doing a particular modolo value.
+        // instead of processing iFirst..iLast, it processes iModulo...numIndi, but always skipping iStep instead of just one item ahead
+        // NOTE: we do <em?not</em> copy the local list into a global one, so we do not need a lock at all
+        void ModuloMetaMagicPartitionedDetectDuplicates
+        (
+            in Individual[] aind, 
+            in int iModulo, 
+            in int iStep,
+            ref List<DuplicateInfo> localNamedDuplicates,
+            ref List<DuplicateInfo> localStillbornDuplicates,
+            CancellationToken ct
+        )
         {
             int numIndi = aind.Length;
             int localProgress = 0;
-            long numInner = 0;
-            long numReport = 0x000FFFL; // 2^16=1 == 65.535
+            long MASKFFF00000 = 0xFFF00000L; // look at the high bits only. mask against 0x0000FFFF, 2^20=1 == 1.048.575
+
+            Debug.Assert(0 != numIndi);
+            Debug.Assert(0 <= iModulo);
+            Debug.Assert(iModulo < iStep);
+
+            localNamedDuplicates = new List<DuplicateInfo>();
+            localStillbornDuplicates = new List<DuplicateInfo>();
+            int localNamedDupInfo = 0;
+            int localStillbornDupInfo = 0;
+
+            for (int i = iModulo; i < numIndi; i += iStep )
+            {
+                localProgress++;
+
+                ref Extra exLeft = ref aExtra[i];
+                if ( 0 == exLeft.m4Sur ) continue;
+
+                ref Individual indLeft = ref aind[i];
+                for (int j = i + 1; j < numIndi; j++)
+                {
+                    ref Extra exRight = ref aExtra[j];
+                    if ( 0 == exRight.m4Sur ) continue;
+
+                    if (exLeft.m4Sur != exRight.m4Sur)  break;  // no longer m4For match; go to next surname
+
+                    Debug.Assert(exLeft.m4For <= exRight.m4For ); // when the m4Sur are the same, the m4For are sorted
+
+                    if (exLeft.m4For < exRight.m4For ) continue;
+
+                    // at this point, the meta4 for both the surname and the given name match (and the jdStart are sorted)
+
+                    ref Individual indRight = ref aind[j];
+
+                    // this bit of code is an inlined version of JDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
+                    // the julian day has the distance in days instead of months; so max dinstance of 5 months becomes 153 days, and 153^2 = 23409.
+                    Int32 bgnDiff = exLeft.jdStart - exRight.jdStart; bgnDiff = (0 > bgnDiff ? -bgnDiff : bgnDiff); if (153 < bgnDiff) continue;
+                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff = (0 > endDiff ? -endDiff : endDiff); if (153 < endDiff) continue;
+                    UInt32 bgnDiffSquared = (UInt32)(bgnDiff * bgnDiff);
+                    UInt32 endDiffSquared = (UInt32)(endDiff * endDiff);
+                    UInt32 diffSquared = bgnDiffSquared + endDiffSquared;
+                    if (23409 < diffSquared) continue;
+
+                    int iScore = Matching.Score(indLeft, indRight);
+                    if (iScore > 0)
+                    {
+                        bool bIsTwin = Matching.IsTwins(indLeft, indRight);
+                        DuplicateInfo di = new DuplicateInfo(iScore, i, j, bIsTwin);
+
+                        if (0 == exLeft.m4For)
+                        {
+                            localStillbornDuplicates.Add(di);
+                            localStillbornDupInfo++;
+                        }
+                        else
+                        {
+                            localNamedDuplicates.Add(di);
+                            localNamedDupInfo++;
+                        };
+                        // Interlocked.Increment(ref numDuplicatesFound); // do not report every little increment
+                    };
+                };
+
+                if (0 == (MASKFFF00000 & localProgress )) continue;
+
+                if (ct.IsCancellationRequested) return;
+
+                Interlocked.Add(ref totalProgress, localProgress);
+                localProgress = 0;
+            };
+
+            Interlocked.Add(ref totalProgress, localProgress);
+
+            // number of duplicates found only reported at the end of the routine now, to minimise locking.
+            Interlocked.Add(ref numDuplicatesFound, localNamedDupInfo);
+        }
+
+        // NOTE: we do <em?not</em> copy the local list into a global one, so we do not need a lock at all
+        void MetaMagicPartitionedDetectDuplicates
+        (
+            in Individual[] aind, 
+            in int iFirst, 
+            in int iLast,
+            ref List<DuplicateInfo> localNamedDuplicates,
+            ref List<DuplicateInfo> localStillbornDuplicates,
+            CancellationToken ct
+        )
+        {
+            int numIndi = aind.Length;
+            int localProgress = 0;
+            long MASKFFF00000 = 0xFFF00000L; // look at the high bits only. mask against 0x0000FFFF, 2^20=1 == 1.048.575
 
             Debug.Assert(0 != numIndi);
             Debug.Assert(0 <= iFirst);
@@ -3704,71 +3824,92 @@ namespace FTAnalyzer
             };
 #endif
 
+            localNamedDuplicates = new List<DuplicateInfo>();
+            localStillbornDuplicates = new List<DuplicateInfo>();
+            int localNamedDupInfo = 0;
+            int localStillbornDupInfo = 0;
+
             for (int i = iFirst; i <= iLast; i++)
             {
-                Individual indLeft = aind[i];
-                Extra exLeft = aExtra[i];
+                localProgress++;
 
+                ref Extra exLeft = ref  aExtra[i];
+                if (0 == exLeft.m4Sur) continue;
+
+                ref Individual indLeft = ref aind[i];
                 for (int j = i + 1; j < numIndi; j++)
                 {
-                    numInner++;
-
-                    Extra exRight = aExtra[j];
+                    ref Extra exRight = ref aExtra[j];
+                    if (0 == exRight.m4Sur) continue;
 
                     if (exLeft.m4Sur != exRight.m4Sur) break;  // no long longer m4For match; go to next surname
-                   
+
                     Debug.Assert(exLeft.m4For <= exRight.m4For); // when the m4Sur are the same, the m4For are sorted
 
                     if (exLeft.m4For < exRight.m4For) continue;
 
                     // at this point, the meta4 for both the surname and the given name match (and the jdStart are sorted)
 
-                    Individual indRight = aind[j];
+                    ref Individual indRight = ref aind[j];
 
-                    // if (Individual.UNKNOWN_NAME == indLeft.Name) continue;
-                    // if (Individual.UNKNOWN_NAME == indRight.Name) continue;
-                    if (0 == indLeft.Name.Length) continue;
-                    if (0 == indRight.Name.Length) continue;
-
-                    // this bit of code is an inlined version of JDDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
-                    // the julian day number provides the distance in days instead of months (so max dinstance of 5 months becomes 153 days, and 153^2 = 23409).
-                    Int32 bgnDiff = exLeft.jdStart - exRight.jdStart; bgnDiff /= 30;
-                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
+                    // this bit of code is an inlined version of JDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
+                    // the julian day has the distance in days instead of months; so max dinstance of 5 months becomes 153 days, and 153^2 = 23409.
+                    Int32 bgnDiff = exLeft.jdStart - exRight.jdStart; bgnDiff = (0 > bgnDiff ? -bgnDiff : bgnDiff); if (153 < bgnDiff) continue;
+                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff = (0 > endDiff ? -endDiff : endDiff); if (153 < endDiff) continue;
                     UInt32 bgnDiffSquared = (UInt32)(bgnDiff * bgnDiff);
                     UInt32 endDiffSquared = (UInt32)(endDiff * endDiff);
                     UInt32 diffSquared = bgnDiffSquared + endDiffSquared;
-                    if (25 < diffSquared) continue;
+                    if (22409 < diffSquared) continue;
 
-                    var test = new DuplicateIndividual(indLeft, indRight);
-                    if (test.Score > 0)
+                    int iScore = Matching.Score(indLeft, indRight);
+                    if (iScore > 0)
                     {
-                        buildDuplicates.Add(test);
-                        Interlocked.Increment(ref numDuplicatesFound);
+                        bool bIsTwin = Matching.IsTwins(indLeft, indRight);
+                        DuplicateInfo di = new DuplicateInfo(iScore, i, j, bIsTwin);
+
+                        if (0 == exLeft.m4For)
+                        {
+                            localStillbornDuplicates.Add(di);
+                            localStillbornDupInfo++;
+                        }
+                        else
+                        {
+                            localNamedDuplicates.Add(di);
+                            localNamedDupInfo++;
+                        };
+                        // Interlocked.Increment(ref numDuplicatesFound); // do not report every little increment
                     };
                 };
 
-                localProgress++;
-                if (numInner > numReport)
-                {
-                    // report progress
-                    if (ct.IsCancellationRequested) return;
-                    Interlocked.Add(ref totalProgress, localProgress);
-                    numInner = 0;
-                    localProgress = 0;
-                };
+                if (0 == (MASKFFF00000 & localProgress)) continue;
+
+                if (ct.IsCancellationRequested) return;
+
+                Interlocked.Add(ref totalProgress, localProgress);
+                localProgress = 0;
             };
 
             Interlocked.Add(ref totalProgress, localProgress);
+
+            // number of duplicates found only reported at the end of the routine now, to minimise locking.
+            Interlocked.Add(ref numDuplicatesFound, localNamedDupInfo);
         }
 
-        void RegularPartionedIdentifyDuplicates(Individual[] aind, int iFirst, int iLast, CancellationToken ct)
+        // the original code calculated a distance using Pytharogas, this code uses the square of the distance, no Sqrt() operation necessary
+        // NOTE: we do <em?not</em> copy the local list into a global one, so we do not need a lock at all
+        void RegularPartitionedDetectDuplicates
+            (
+                in Individual[] aind, 
+                in int iFirst, in int iLast,
+                ref List<DuplicateInfo> localNamedDuplicates,
+                ref List<DuplicateInfo> localStillbornDuplicates,
+                CancellationToken ct
+            )
         {
             int numIndi = aind.Count();
 
             int localProgress = 0;
-            long numInner = 0;
-            //     long MASK000fFFFF   = 0x000FFFFFL ; // 2^20-1 = 1.048.575
-            long MASKFFF00000 = 0xFFF00000L; // look at the high bits only
+            long MASKFFF00000 = 0xFFF00000L; // look at the high bits only. mask against 0x0000FFFF, 2^20=1 == 1.048.575
 
             Debug.Assert(0 <= iFirst);
             Debug.Assert(iFirst <= iLast);
@@ -3776,86 +3917,114 @@ namespace FTAnalyzer
 
             Debug.Assert(aExtra.Length == aind.Count());
 
+            localNamedDuplicates = new List<DuplicateInfo>();
+            localStillbornDuplicates = new List<DuplicateInfo>();
+            int localNamedDupInfo = 0;
+            int localStillbornDupInfo = 0;
+
             for (int i = iFirst; i <= iLast; i++)  // notice <= instead of <
             {
-                var indLeft = aind[i];
-                var exLeft = aExtra[i];
+                localProgress++;
 
+                ref var exLeft = ref aExtra [i];
+                if (0 == exLeft.m4Sur) continue;
+
+                ref Individual indLeft = ref aind[i];
                 for (int j = i + 1; j < numIndi; j++)
                 {
-                    var indRight = aind[j];
-                    var exRight = aExtra[j];
-
-                    numInner++;
-
-                    // comparisons ignore sex now; comparing everyone with everyone
-                    // the original if condition was hard to read correctly, this code is less likely to be misunderstood
-                    // the original code compared "standardidsed names"; that was superfluous as we are already using metaphone
-                    // the original code calculated a distance using Pytharogas, this code uses the square of the distance, no Sqrt() operation necessary
-
-                    if (0 == indLeft.Name.Length) continue;
-                    if (0 == indRight.Name.Length) continue;
+                    ref Extra exRight = ref aExtra[j];
+                    if (0 == exRight.m4Sur) continue;
 
                     if (exLeft.m4Sur != exRight.m4Sur) continue;
                     if (exLeft.m4For != exRight.m4For) continue;
 
+                    ref Individual indRight = ref aind[j];
+
                     // this bit of code is an inlined version of JDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
                     // the julian day has the distance in days instead of months; so max dinstance of 5 months becomes 153 days, and 153^2 = 23409.
-                    Int32 startDiff = exLeft.jdStart - exRight.jdStart; startDiff /= 30;
-                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
-                    UInt32 diffSquared = (UInt32)(startDiff * startDiff) + (UInt32)(endDiff * endDiff);
-                    if (25 < diffSquared) continue;
+                    Int32 bgnDiff = exLeft.jdStart - exRight.jdStart; bgnDiff = (0 > bgnDiff ? -bgnDiff : bgnDiff); if (153 < bgnDiff) continue;
+                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff = (0 > endDiff ? -endDiff : endDiff); if (153 < endDiff) continue;
+                    UInt32 bgnDiffSquared = (UInt32)(bgnDiff * bgnDiff);
+                    UInt32 endDiffSquared = (UInt32)(endDiff * endDiff);
+                    UInt32 diffSquared = bgnDiffSquared + endDiffSquared;
+                    if (22409 < diffSquared) continue;
 
-                    var test = new DuplicateIndividual(indLeft, indRight);
-                    if (test.Score > 0)
+                    int iScore = Matching.Score(indLeft, indRight);
+                    if (iScore > 0)
                     {
-                        buildDuplicates.Add(test);
-                        Interlocked.Increment(ref numDuplicatesFound);
+                        bool bIsTwin = Matching.IsTwins(indLeft, indRight);
+                        DuplicateInfo di = new DuplicateInfo(iScore, i, j, bIsTwin);
+
+                        if (0 == exLeft.m4For)
+                        {
+                            localStillbornDuplicates.Add(di);
+                            localStillbornDupInfo++;
+                        }
+                        else
+                        {
+                            localNamedDuplicates.Add(di);
+                            localNamedDupInfo++;
+                        };
+                        // Interlocked.Increment(ref numDuplicatesFound); // do not report every little increment
                     };
                 };
 
-                localProgress++;
-                if (0 == (MASKFFF00000 & numInner)) continue;
+                if (0 == (MASKFFF00000 & localProgress )) continue;
 
-                // report progress
                 if (ct.IsCancellationRequested) return;
+
                 Interlocked.Add(ref totalProgress, localProgress);
-                numInner = 0;
                 localProgress = 0;
             };
 
             Interlocked.Add(ref totalProgress, localProgress);
+
+            // number of duplicates found only reported at the end of the routine now, to minimise locking.
+            Interlocked.Add(ref numDuplicatesFound, localNamedDupInfo);
         }
 
 
-        // BUG: code does handle the case of a GEDCOM file with zero INDI records.
+
+
+        // we give each task its own set of local lists, so they do not need to lock for list access at all
+        
+       struct LocalLists
+        {
+            public List<DuplicateInfo> NamedDuplicates;
+            public List<DuplicateInfo> StillDuplicates;
+        };
+
         // BUG: parameter value needs a better name. Not clear at all what it is for.
         public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList
         (
-            int value, 
+            int value,
             IProgress<int> progress,
-            IProgress<int> maximum, 
+            IProgress<int> maximum,
             CancellationToken ct
         )
         {
             //log.Debug("FamilyTree.GenerateDuplicatesList");
 
             bool bMetaSorted = true;
-            
-            if (buildDuplicates != null)
+            bool bModuloMeta = true;
+
+            // 
+            if (globalNamedDuplicates != null)
             {
                 maximum.Report(MaxDuplicateScore());
                 return BuildDuplicateList(value, progress); // we have already processed the duplicates since the file was loaded
             }
-            buildDuplicates = new ConcurrentBag<DuplicateIndividual>();
 
-            // no more male / female split, but a single list for all genders.
-            // no longer use ILst, but Array; we don't need any of the list features, we only need performance for a fixed-size array
+            // the DupInfo found by the worker tasks will be combined into these global arrays
+            gaNamedDupInfo = null;
+            gaStillDupInfo = null;
+
             Individual[] aind = individuals.ToArray();
             int numIndi = aind.Count();
             Debug.Assert(0 != numIndi);
 
             InitExtra(aind);
+                      
             Debug.Assert(aind.Length == aExtra.Length);
 
             progressMaximum = individuals.Count();
@@ -3865,84 +4034,178 @@ namespace FTAnalyzer
 
             progress.Report(0);
 
-            int numThreads = Environment.ProcessorCount;
+            int numProcessors = Environment.ProcessorCount;
 
+            int numWorkerTasks = numProcessors * 4 ;
+
+            LocalLists[] all = new LocalLists[numWorkerTasks];
+
+            Task[] tasks;
+            Task taskProgressReporter;
+
+            // Create the tasks
             if (bMetaSorted)
             {
                 Array.Sort(aExtra, aind);
 
-                Partitions parts = DumbIndiPartitioner(numIndi, numThreads);
-                Debug.Assert(0 != parts.Count);
-
-                Task[] tasks = new Task[parts.Count + 1];
-                try
+                if (bModuloMeta)
                 {
+                    // the modulo approach obviates the need to calculate any partitions
+                    int partCount = 1;
+                    if (numIndi >= MinIndiToPartition) partCount = numWorkerTasks;
+
+                    // create all the tasks before running any of them; this separation makes it easier to try different approaches
+                    tasks = new Task[partCount + 1];
+                    for (int i = 0; i < partCount; i++)
+                    {
+                        var j = i;
+                        tasks[j] = new Task( () => { ModuloMetaMagicPartitionedDetectDuplicates(aind, j, partCount, ref all[j].NamedDuplicates, ref all[j].StillDuplicates, ct); }, ct);
+                    };
+                    taskProgressReporter = new Task(() => ProgressReporter(progress, ct), ct);
+                    tasks[partCount] = taskProgressReporter;
+                }
+                else
+                {
+                    Partitions parts = DumbIndiPartitioner(numIndi, numWorkerTasks);
+                    Debug.Assert(0 != parts.Count);
+
+                    // create all the tasks before running any of them; this separation makes it easier to try different approaches
+                    tasks = new Task[parts.Count + 1];
                     for (int i = 0; i < parts.Count; i++)
                     {
-                        var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
-                        tasks[j] = Task.Run(() => { MagicPartitionedIdentifyDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ct); }, ct);
+                        var j = i; 
+                        tasks[j] = new Task(() => { MetaMagicPartitionedDetectDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ref all[j].NamedDuplicates, ref all[j].StillDuplicates, ct); }, ct);
                     };
-                    // we do not wait on the progress reporter, only on the workers
-                    tasks[parts.Count] = Task.Run(() => ProgressReporter(progress, ct), ct);
-
-                    await Task.WhenAll(tasks).ConfigureAwait(true);
-                    Debug.Assert(numIndi == totalProgress);
-                }
-                catch (OperationCanceledException)
-                {
-                    progress.Report(0);
-                    maximum.Report(10);
-                    buildDuplicates = null;
-                    return null;
+                    taskProgressReporter = new Task(() => ProgressReporter(progress, ct), ct);
+                    tasks[parts.Count] = taskProgressReporter;
                 };
-                maximum.Report(MaxDuplicateScore());
-                DeserializeNonDuplicates();
-                return BuildDuplicateList(value, progress);
             }
             else
             {
-                Partitions parts = SmartIndiPartitioner(numIndi, numThreads);
+                Partitions parts = SmartIndiPartitioner(numIndi, numWorkerTasks);
                 Debug.Assert(0 != parts.Count);
 
-                Task[] tasks = new Task[parts.Count + 1];
-                try
+                // create all the tasks before running any of them; this separation makes it easier to try different approaches
+                tasks = new Task[parts.Count + 1];
+                for (int i = 0; i < parts.Count; i++)
                 {
-                    for (int i = 0; i < parts.Count; i++)
-                    {
-                        var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
-                        tasks[j] = Task.Run(() => { RegularPartionedIdentifyDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ct); }, ct);
-                    };
-                    tasks[parts.Count] = Task.Run(() => ProgressReporter(progress, ct), ct);
-
-                    await Task.WhenAll(tasks).ConfigureAwait(true);
-                }
-                catch (OperationCanceledException)
-                {
-                    progress.Report(0);
-                    maximum.Report(10);
-                    buildDuplicates = null;
-                    return null;
-                }
-                maximum.Report(MaxDuplicateScore());
-                DeserializeNonDuplicates();
-                return BuildDuplicateList(value, progress);
+                    var j = i;
+                    tasks[j] = new Task(() => { RegularPartitionedDetectDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ref all[j].NamedDuplicates, ref all[j].StillDuplicates, ct); }, ct);
+                };
+                taskProgressReporter = new Task(() => ProgressReporter(progress, ct), ct);
+                tasks[parts.Count] = taskProgressReporter;
             };
 
+            // Execute the tasks
+            try
+            {
+                for (int i = 0; i < tasks.Count(); i++)
+                {
+                    var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
+                    tasks[j].Start();
+                };
+                await( taskProgressReporter ); // await Task.WhenAll(tasks); //optimisation: wait on ProgressReporter only; it only terminates when the work is done
+                Debug.Assert(numIndi == totalProgress);
+            }
+            catch (OperationCanceledException)
+            {
+                progress.Report(0);
+                maximum.Report(10);
+                return null;
+            };
+
+            // Collect the results
+            // each indivudual NamedDuplicates and StillbornDuplicates list in all[] is sorted by m4Sur, m4For, 
+
+            // total the number of duplicates found
+            int iTotalNamedDuplicates = 0;
+            int iTotalStillDuplicates = 0;
+            for (int t = 0; t < numWorkerTasks; t++) iTotalNamedDuplicates += all[t].NamedDuplicates.Count;
+            for (int t = 0; t < numWorkerTasks; t++) iTotalStillDuplicates += all[t].StillDuplicates.Count;
+            Debug.Assert(iTotalNamedDuplicates == numDuplicatesFound);
+
+            // copy the local lists into global arrays
+            gaNamedDupInfo = new DuplicateInfo[iTotalNamedDuplicates];
+            gaStillDupInfo = new DuplicateInfo[iTotalStillDuplicates];
+            int g = 0;
+            for (int t = 0; t < numWorkerTasks; t++)
+            {
+                for (int d = 0; d < all[t].NamedDuplicates.Count; d++)
+                {
+                    gaNamedDupInfo[g] = all[t].NamedDuplicates[d];
+                    g++;
+                };
+                all[t].NamedDuplicates = null;
+            };
+            Debug.Assert(g == iTotalNamedDuplicates);
+            g = 0;
+            for (int t = 0; t < numWorkerTasks; t++)
+            {
+                for (int d = 0; d < all[t].StillDuplicates.Count; d++)
+                {
+                    gaStillDupInfo[g] = all[t].StillDuplicates[d];
+                    g++;
+                };
+                all[t].StillDuplicates = null;
+            };
+            Debug.Assert(g == iTotalStillDuplicates);
+
+            // sort the DupInfo arrays by matching score
+            Array.Sort(gaNamedDupInfo ); gaNamedDupInfo.Reverse();
+            Array.Sort(gaStillDupInfo ); gaStillDupInfo.Reverse();
+
+            // create global Duplicate list
+            int count = gaNamedDupInfo.Count();
+            globalNamedDuplicates = new Duplicate[count];
+            for (int i = 0; i < count; i++)
+            {
+                DuplicateInfo di = gaNamedDupInfo[i];
+
+                globalNamedDuplicates[i] = new Duplicate(ref aind[di.iLeft], ref aind[di.iRight], di.iScore, di.bIsTwin);
+
+                // NOTE: we sort regular before twins, but current display code resorts based on score only. 
+                if (!di.bIsTwin) globalNamedDuplicates[i].iScore += 800; 
+
+            };
+            count = gaStillDupInfo.Count();
+            globalStillDuplicates = new Duplicate[count];
+            for (int i = 0; i < count; i++)
+            {
+                DuplicateInfo di = gaStillDupInfo[i];
+
+                globalStillDuplicates[i] = new Duplicate(ref aind[di.iLeft], ref aind[di.iRight], di.iScore, di.bIsTwin );
+            };
+            gaNamedDupInfo = null ;
+            gaStillDupInfo = null;
+            aind = null;
+
+            maximum.Report(MaxDuplicateScore());
+            DeserializeNonDuplicates();
+            return BuildDuplicateList(value, progress);
         }
 
 
-        // BUG: this is incredibly inefficient. You are sorting the result anyway. Sort into an array, then retrieve the highest score.
+        // NOTE: globalNamedDuplicates is sorted before calling this routine.
+        // TODO: refactor code; why is there a need to know the max at all? Why simply dispay the duplicates sorted by matching score?
         int MaxDuplicateScore()
         {
-            int score = 0;
-            foreach (DuplicateIndividual dup in buildDuplicates)
+            int iMax = 0;
+            if (null != globalNamedDuplicates)
             {
-                if (dup != null && dup.Score > score)
-                    score = dup.Score;
-            }
-            return score;
+                if (0 != globalNamedDuplicates.Count())
+                { 
+                    iMax = globalNamedDuplicates[0].iScore;
+                };
+            };
+            return iMax ;
         }
 
+        // BUG: orignal code uses Name(), a function that performs an action it should not perform.
+        // The Name() functions <em>changes</em> the name used! Should not do that.
+        // The program should offer a tab that detects bad practices such as "unk" and "[--"?--]" instead
+        // The duplicate detection can and should use the name as it is.
+
+/*
         // ABANDONED APPROACH. CODE CAN BE DELETED
         // Using Parallel.For for the outer loop inside the IdentifyDuplicates() routine results in simpler code, but uses massive amounts of memory
         // Parallel.For() internally creates multiple tasks, so this routine is at times competing with itself for access to variables
@@ -3982,12 +4245,16 @@ namespace FTAnalyzer
                     {
                         if (indLeft.SurnameMetaphone.Equals(indRight.SurnameMetaphone) &&
                             (indLeft.ForenameMetaphone.Equals(indRight.ForenameMetaphone) || indLeft.StandardisedName.Equals(indRight.StandardisedName)) &&
-                            indLeft.BirthDate.Distance(indRight.BirthDate) < 5)
+                        //    indLeft.BirthDate.Distance(indRight.BirthDate) < 5)
+                            indLeft.BirthDate.DistanceSquared(indRight.BirthDate) < 25 )
                         {
                             var test = new DuplicateIndividual(indLeft, indRight);
                             if (test.Score > 0)
                             {
-                                buildDuplicates.Add(test);
+                                lock (lockGlobalNamedDuplictes)
+                                { 
+                                    globalNamedDuplicates.Add(test);
+                                };
                                 Interlocked.Increment(ref numDuplicatesFound);
                             }
                         }
@@ -4002,21 +4269,32 @@ namespace FTAnalyzer
 
             }); // Parallel.For
         }
+*/
 
-        public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList(int minScore, IProgress<int> progress)
+
+
+        public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList( int minScore, IProgress<int> progress)
         {
             var select = new SortableBindingList<IDisplayDuplicateIndividual>();
-            long numDuplicates = buildDuplicates.Count;
+            long numDuplicates = globalNamedDuplicates.Count();
             long numProcessed = 0;
             iCurrentPercentage = 0;
             progress.Report(0);
             if (NonDuplicates is null)
                 DeserializeNonDuplicates();
-            foreach (DuplicateIndividual dup in buildDuplicates)
+
+            // The code now uses globalNamedDuplicates, which contiansthe lightweight Duplicate instead of the expensive DuplicateIndivudal
+            // TODO: The code still using DuplicateIndiviudual should  usage of Duplicate should be refatored  to use Duplicate instead
+            // TODO: change DisplayDuplicateIndividuals to only maintain the strings to be displayed, not keep expensive Individuals objects around
+            foreach (Duplicate dup in globalNamedDuplicates)
             {
-                if (dup.Score >= minScore)
+                // BUG: temporary usage of deprecated DuplicateInidvidual object, to limit propagation of code changes to a few files
+                // notice the use of the new constructor, that takes the matching score, so we don't waste cycles calculating it again
+                DuplicateIndividual DupInd = new DuplicateIndividual( dup.IndLeft, dup.IndRight, dup.iScore);
+
+                if (DupInd.Score >= minScore)
                 {
-                    var dispDup = new DisplayDuplicateIndividual(dup);
+                    var dispDup = new DisplayDuplicateIndividual(DupInd);
                     var toCheck = new NonDuplicate(dispDup);
                     dispDup.IgnoreNonDuplicate = NonDuplicates.ContainsDuplicate(toCheck);
                     if (!(GeneralSettings.Default.HideIgnoredDuplicates && dispDup.IgnoreNonDuplicate))
