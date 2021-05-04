@@ -12,10 +12,6 @@ namespace FTAnalyzer
         string IndividualID { get;}
         [ColumnDetail("Name", 250)]
         string Name { get;}
-        [ColumnDetail("Forenames", 200)]
-        string Forenames { get; }
-        [ColumnDetail("Surname", 150)]
-        string Surname { get; }
         [ColumnDetail("Birth Date", 225)]
         FactDate BirthDate { get;}
         [ColumnDetail("Birth Location", 400)]
