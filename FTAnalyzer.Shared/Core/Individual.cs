@@ -392,11 +392,14 @@ namespace FTAnalyzer
                     Surname = UNKNOWN_NAME;
                     _forenames = name;
                 }
-                if (Surname.ToLower() == "mnu" || Surname.ToLower() == "lnu" || Surname.Length == 0 ||
+                if (string.IsNullOrEmpty(Surname) || Surname.ToLower() == "mnu" || Surname.ToLower() == "lnu" || Surname == "[--?--]" || Surname.ToLower() == "unk" ||
                   ((Surname[0] == '.' || Surname[0] == '?' || Surname[0] == '_') && Surname.Distinct().Count() == 1)) // if all chars are same and is . ? or _
                     Surname = UNKNOWN_NAME;
                 if (GeneralSettings.Default.TreatFemaleSurnamesAsUnknown && !IsMale && Surname.StartsWith("(", StringComparison.Ordinal) && Surname.EndsWith(")", StringComparison.Ordinal))
                     Surname = UNKNOWN_NAME;
+                if(string.IsNullOrEmpty(_forenames) || _forenames.ToLower() == "unk" || _forenames == "[--?--]" ||
+                  ((_forenames[0] == '.' || _forenames[0] == '?' || _forenames[0] == '_') && _forenames.Distinct().Count() == 1))
+                  _forenames = UNKNOWN_NAME;
                 MarriedName = Surname;
                 _fullname = SetFullName();
                 SortedName = $"{_forenames} {Surname}".Trim();
@@ -526,7 +529,7 @@ namespace FTAnalyzer
             }
         }
 
-        int MaxAgeAtDeath => DeathDate.EndDate > DateTime.Now ? GetAge(DateTime.Now).MaxAge : GetAge(DeathDate).MaxAge;
+        int MaxAgeAtDeath => DeathDate.EndDate > FactDate.NOW ? GetAge(FactDate.NOW).MaxAge : GetAge(DeathDate).MaxAge;
 
         public Age LifeSpan => GetAge(FactDate.TODAY);
 

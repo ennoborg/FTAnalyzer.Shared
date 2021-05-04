@@ -50,6 +50,7 @@ namespace FTAnalyzer
         public static FactDate MARRIAGE_LESS_THAN_13;
         public static FactDate SAME_SEX_MARRIAGE;
         public static FactDate TODAY;
+        public static DateTime NOW;
 
         static readonly Dictionary<string, Regex> _datePatterns;
         static Regex _regex;
@@ -78,6 +79,7 @@ namespace FTAnalyzer
             MARRIAGE_LESS_THAN_13 = new FactDate("1600");
             SAME_SEX_MARRIAGE = new FactDate("AFT 1 APR 2001");
             TODAY = new FactDate(DateTime.Now.ToString("dd MMM yyyy", CULTURE));
+            NOW = TODAY.StartDate;
         }
 
         public enum FactDateType { BEF, AFT, BET, ABT, UNK, EXT }
@@ -159,6 +161,8 @@ namespace FTAnalyzer
             str = EnhancedTextInfo.RemoveSupriousDateCharacters(str.Trim().ToUpper());
             if (!Properties.NonGedcomDate.Default.UseNonGedcomDates || Properties.NonGedcomDate.Default.Separator != ".")
                 str = str.Replace(".", " ");
+            if (str.StartsWith("<") && str.EndsWith(">"))
+                str = str.Replace("<", "").Replace(">", "");                   
             // remove date qualifiers first
             str = str.Replace("@#DGREGORIAN@", "").Replace("@#DJULIAN@", ""); //.Replace("@#DFRENCH R@", ""); // .Replace("@#DHEBREW@", "");
             str = str.Replace(". ", " "); // even if Non GEDCOM date separator is a dot, dot space is invalid.
@@ -987,12 +991,16 @@ namespace FTAnalyzer
             }
         }
 
-        public double Distance(FactDate when)
+        public long DistanceSquared(FactDate when)
         {
-            double startDiff = ((StartDate.Year - when.StartDate.Year) * 12) + (StartDate.Month - when.StartDate.Month);
-            double endDiff = ((EndDate.Year - when.EndDate.Year) * 12) + (EndDate.Month - when.EndDate.Month);
-            double difference = Math.Sqrt(Math.Pow(startDiff, 2.0) + Math.Pow(endDiff, 2.0));
+            long startDiff = ((StartDate.Year - when.StartDate.Year) * 12) + (StartDate.Month - when.StartDate.Month);
+            long endDiff = ((EndDate.Year - when.EndDate.Year) * 12) + (EndDate.Month - when.EndDate.Month);
+            long difference = startDiff * startDiff + endDiff * endDiff;
             return difference;
+            //double startDiff = ((StartDate.Year - when.StartDate.Year) * 12) + (StartDate.Month - when.StartDate.Month);
+            //double endDiff = ((EndDate.Year - when.EndDate.Year) * 12) + (EndDate.Month - when.EndDate.Month);
+            //double difference = Math.Sqrt(Math.Pow(startDiff, 2.0) + Math.Pow(endDiff, 2.0));
+            //return difference;
         }
 
         double DaysSpan => EndDate.Subtract(StartDate).TotalDays;

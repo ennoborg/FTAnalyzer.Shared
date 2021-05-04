@@ -17,11 +17,9 @@ using System.Web;
 using System.Xml;
 using System.Numerics;
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using FTAnalyzer.Controls;
 
 #if __PC__
+using FTAnalyzer.Forms.Controls;
 #elif __MACOS__ || __IOS__
 using FTAnalyzer.ViewControllers;
 #endif
@@ -44,7 +42,7 @@ namespace FTAnalyzer
         SortableBindingList<IDisplayLooseDeath> looseDeaths;
         SortableBindingList<IDisplayLooseBirth> looseBirths;
         SortableBindingList<IDisplayLooseInfo> looseInfo;
- //     SortableBindingList<DuplicateIndividual> duplicates; // never used
+        SortableBindingList<DuplicateIndividual> duplicates;
         ConcurrentBag<DuplicateIndividual> buildDuplicates;
         const int DATA_ERROR_GROUPS = 32;
         static XmlNodeList noteNodes;
@@ -211,7 +209,7 @@ namespace FTAnalyzer
             SoloFamilies = 0;
             PreMarriageFamilies = 0;
             ResetLooseFacts();
-//          duplicates = null;      // never used
+            duplicates = null;
             buildDuplicates = null;
             ClearLocations();
 #if __PC__
@@ -1150,7 +1148,7 @@ namespace FTAnalyzer
                 if (birthDate != baseDate)
                     toAdd = baseDate;
             }
-            if (toAdd != null && toAdd != birthDate && toAdd.Distance(birthDate) > 1)
+            if (toAdd != null && toAdd != birthDate && toAdd.DistanceSquared(birthDate) > 1)
             {
                 // we have a date to change and its not the same 
                 // range as the existing death date
@@ -1255,7 +1253,7 @@ namespace FTAnalyzer
                     }
                 }
             }
-            if (toAdd != null && toAdd != deathDate && toAdd.Distance(deathDate) > 1)
+            if (toAdd != null && toAdd != deathDate && toAdd.DistanceSquared(deathDate) > 1)
             {
                 // we have a date to change and its not the same 
                 // range as the existing death date
@@ -1312,7 +1310,6 @@ namespace FTAnalyzer
         DateTime GetMinDeathDate(Individual indiv)
         {
             FactDate deathDate = indiv.DeathDate;
-            DateTime now = DateTime.Now;
             FactDate.FactDateType deathDateType = deathDate.DateType;
             FactDate.FactDateType birthDateType = indiv.BirthDate.DateType;
             DateTime minDeath = FactDate.MAXDATE;
@@ -1321,7 +1318,7 @@ namespace FTAnalyzer
                 minDeath = CreateDate(indiv.BirthDate.EndDate.Year + FactDate.MAXYEARS, 12, 31);
                 if (birthDateType == FactDate.FactDateType.BEF)
                     minDeath = minDeath.TryAddYears(1);
-                if (minDeath > now) // 110 years after birth is after todays date so we set to ignore
+                if (minDeath > FactDate.NOW) // 110 years after birth is after todays date so we set to ignore
                     minDeath = FactDate.MAXDATE;
             }
             FactDate burialDate = indiv.GetPreferredFactDate(Fact.BURIAL);
@@ -2000,10 +1997,9 @@ namespace FTAnalyzer
                     }
                     #endregion
                     #region All Facts
-                    FactDate now = new FactDate(DateTime.Now.ToString("dd MMM yyyy"));
                     foreach (Fact f in ind.AllFacts)
                     {
-                        if (f.FactDate.IsAfter(now))
+                        if (f.FactDate.IsAfter(FactDate.TODAY))
                             errors[(int)Dataerror.FACT_IN_FUTURE].Add(
                                 new DataError((int)Dataerror.FACT_IN_FUTURE, ind, $"{f} is in the future."));
                         if (FactBeforeBirth(ind, f))
@@ -2942,7 +2938,7 @@ namespace FTAnalyzer
                 else if (st == SearchType.DEATH)
                     query.Append("&record_type=stat_deaths");
                 int fromYear = Math.Max(1855, factdate.StartDate.Year - 1); // -1 to add a years tolerance either side
-                int toYear = Math.Min(factdate.EndDate.Year + 1, FactDate.TODAY.StartDate.Year); // +1 to add a years tolerance either side
+                int toYear = Math.Min(factdate.EndDate.Year + 1, FactDate.NOW.Year); // +1 to add a years tolerance either side
                 query.Append($"&from_year={fromYear}&to_year={toYear}");
                 uri.Query = query.ToString();
                 oprResult = uri.ToString();
@@ -3322,658 +3318,60 @@ namespace FTAnalyzer
         #endregion
 
         #region Duplicates Processing
+        long totalComparisons;
+        long maxComparisons;
+        long duplicatesFound;
+        int currentPercentage;
 
-        int progressMaximum;
-        int totalProgress;
-        int numDuplicatesFound;
-        int iCurrentPercentage;
-
-        
-        // this array with Extra c.q. replacement fields is global to avoid additonal functions parameters inside loops.
-        // TODO: folded this code into Indivual.cs, replacing the metaphone strings with meta4 values.
-        Extra[] aExtra = null;
-
-        void InitExtra(Individual[] aind)
+        public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList(int value, bool ignoreUnknown, IProgress<int> progress, IProgress<string> progressText, IProgress<int> maximum, CancellationToken ct)
         {
-
-            int numIndi = aind.Count();
-
-            aExtra = new Extra[numIndi];
-            Debug.Assert(numIndi == aExtra.Length);
-
-            for (int i = 0; i < numIndi; i++)
-            {
-                aExtra[i].m4For = InitMeta4(aind[i].ForenameMetaphone);
-                aExtra[i].m4Sur = InitMeta4(aind[i].SurnameMetaphone);
-
-                FactDate fd = aind[i].BirthDate;
-                aExtra[i].jdStart = DateToJD(fd.StartDate);
-                aExtra[i].jdEnd = DateToJD(fd.EndDate);
-            };
-        }
-
-        /* TODO: move this code into separate file Meta4.cs
-         */
-
-        // meta union defined here in FamilyTree.cs to keep changes local to this file.
-        // It should be filtered up to the Individual definition to save both space and runtime.
-        // using System.Runtime.interopServices ;
-
-        /* Comceptually
-                [StructLayout(LayoutKind.Explicit, Size = 8)]
-                public struct meta4
-                {
-                    [FieldOffset(0)] public readonly UInt32 u;
-                    [FieldOffset(0)] public byte[4]  s      ;
-                }
-
-            practically, this code simply uses Uint32
-        */
-
-        UInt32 InitMeta4(string sz)
-        {
-            UInt32 u = 0;
-
-            int strlen = sz.Length;
-            for (int i = 0; i < 4; i++)
-            {
-                u <<= 8;
-                if (i < strlen) u += (byte)sz[i];
-            };
-            return u;
-        }
-
-        // put m4Sur first; this is what we sort on.
-        [StructLayout(LayoutKind.Explicit, Size = 16)]
-        public struct Extra : IComparable<Extra>
-        {
-            [FieldOffset(0)] public UInt32 m4Sur;
-            [FieldOffset(4)] public UInt32 m4For;
-            [FieldOffset(8)] public Int32 jdStart;
-            [FieldOffset(12)] public Int32 jdEnd;
-
-            // sort non-decreasing (increasing), on both m4Sur and m4For
-            // sorting on m4Su group by surname, having m4For sorted as well allows additional optimisation
-            public int CompareTo(Extra exOther)
-            {
-                Int32 iVal = (Int32)this.m4Sur - (Int32)exOther.m4Sur;
-                if (0 == iVal)
-                {
-                    iVal = (Int32)this.m4For - (Int32)exOther.m4For;
-                    if ( 0 == iVal)
-                    {
-                        iVal = this.jdStart - exOther.jdStart;
-                        if ( 0 == iVal )
-                        {
-                            iVal= this.jdEnd - exOther.jdEnd;
-                        };
-                    };
-
-                };
-                return iVal;
-            }
-        };
-
-        /* TODO: moves this code into separate file JulianDay.cs
-         */
-
-        static UInt16[] aCumulativeDays = new UInt16[]
-        {
-              0   // Month = 0  : -92 (Should not be accessed by algorithm)
-          ,   0   // Month = 1  : -61 (Should not be accessed by algorithm)
-          ,   0   // Month = 2  : -31 (Should not be accessed by algorithm)
-          ,   0   // Month = 3  (March)
-          ,  31   // Month = 4  (April)
-          ,  61   // Month = 5  (May)
-          ,  92   // Month = 6  (June)
-          , 122   // Month = 7  (July)
-          , 153   // Month = 8  (August)
-          , 184   // Month = 9  (September)
-          , 214   // Month = 10 (October)
-          , 245   // Month = 11 (November)
-          , 275   // Month = 12 (December)
-          , 306   // Month = 13 (January, next year)
-          , 337   // Month = 14 (February, next year)
-        };
-        // BUG: this date to JD conversion assumes the Gregorian Calendar.
-        // That defect hardly matters given the way the julian day is used here (compare to each other), but should be fixed when use of jd is folded into Individual
-        // BUG: function has not been verified. This too hardly  matters given how it is used here.
-        static private Int32 DateToJD(Int16 year, UInt16 month, UInt16 day)
-        {
-            Int32 jd = 0;
-
-            Int16 Y = year;
-            UInt16 M = month;
-            UInt16 D = day;
-            Int16 B;
-
-            // a few guards aginast the worst nonense
-            if (Y < -4713) return 0;
-            if (M > 12) return 0;
-            if (D > 31) return 0;
-
-
-            // calculation uses year starting in March
-            if (2 < M)
-            {
-                Y--;
-            }
-            else
-            {
-                M += 12;
-            };
-            Debug.Assert(M < aCumulativeDays.Length);
-
-            B = (Int16)(2 - (Y / 100) + (Y / 100) / 4);
-
-            jd = (Y + 4716);
-            jd += (jd * 365) + jd / 4;
-            jd += aCumulativeDays[M];
-            jd += D;
-            jd += B;
-            jd -= 1524;
-
-            return jd;
-        }
-
-        static private Int32 DateToJD(DateTime dt)
-        {
-            Int32 jd = 0;
-
-            Int16 Y = (Int16)dt.Year;
-            UInt16 M = (UInt16)dt.Month;
-            UInt16 D = (UInt16)dt.Day;
-            Int16 B;
-
-            // calculation uses year starting in March
-            if (2 < M)
-            {
-                Y--;
-            }
-            else
-            {
-                M += 12;
-            };
-            Debug.Assert(M < aCumulativeDays.Length);
-
-            B = (Int16)(2 - (Y / 100) + (Y / 100) / 4);
-
-            jd = (Y + 4716);
-            jd += (jd * 365) + jd / 4;
-            jd += aCumulativeDays[M];
-            jd += D;
-            jd += B;
-            jd -= 1524;
-
-            return jd;
-        }
-
-        ulong FactDateDistanceSquared(FactDate fdLeft, FactDate fdRight)
-        {
-            long startDiff = ((fdLeft.StartDate.Year - fdRight.StartDate.Year) * 12) + (fdLeft.StartDate.Month - fdRight.StartDate.Month);
-            long endDiff = ((fdLeft.EndDate.Year - fdRight.EndDate.Year) * 12) + (fdLeft.EndDate.Month - fdRight.EndDate.Month);
-            ulong diffSquared = (ulong)(startDiff * startDiff) + (ulong)(endDiff * endDiff);
-
-            return diffSquared;
-        }
-
-        UInt32 JDDinstanceSquared(Extra exLeft, Extra exRight)
-        {
-            Int32 startDiff = exLeft.jdStart - exRight.jdStart; startDiff /= 30;
-            Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
-
-            UInt32 diffSquared = (UInt32)(startDiff * startDiff) + (UInt32)(endDiff * endDiff);
-            return diffSquared;
-        }
-
-        /* end of JulianDay.cs */
-
-        // partitionting stuff
-        int MinIndiToPartition = 4096; // 2^12  // minimum number of INDI require to partition at all
-        struct Partition
-        {
-            public int iFirst;
-            public int iLast;
-        }
-
-        struct Partitions
-        {
-            public int Count;
-            public Partition[] api;
-        }
-
-
-        // This routine partitions numIndi invidiuals into equally sized partions
-        Partitions DumbIndiPartitioner(int numIndi, int numThreads)
-        {
-            Partitions parts;
-
-            Debug.Assert(0 != numThreads);
-
-            if (1 >= numIndi)
-            {
-                parts.Count = 0;
-                parts.api = null;
-                return parts;
-            };
-            Debug.Assert(1 < numIndi);
-
-            if (MinIndiToPartition >= numIndi)
-            {
-                parts.Count = 1;
-                parts.api = new Partition[1];
-                parts.api[0].iFirst = 0;
-                parts.api[0].iLast = numIndi - 1;
-                return parts;
-            }
-            Debug.Assert(MinIndiToPartition < numIndi);
-
-            parts.Count = numThreads;
-            parts.api = new Partition[numThreads];
-
-            int iFirst = 0;
-            int iLast;
-            int sizePartition = numIndi / numThreads;
-            for (int i = 0; i < numThreads; i++)
-            {
-
-                parts.api[i].iFirst = iFirst;
-                iLast = iFirst + sizePartition;
-
-                parts.api[i].iLast = iLast;
-                iFirst = iLast + 1;
-            };
-            parts.api[numThreads - 1].iLast = numIndi - 1;
-
-            return parts;
-        }
-
-        // This routine routine partitions numIndi Individuals for straightforward everyone to everyone comparison
-        // it creates unequal partitions such that all partitions will perform roughly equal amount of comparisions
-        // This routine is designed for regular PCs with processors like an i7, not for massively parallal systems
-        Partitions SmartIndiPartitioner(int numIndi, int numThreads)
-        {
-            Partitions parts;
-
-            Debug.Assert(0 != numThreads);
-
-            if (1 >= numIndi)
-            {
-                parts.Count = 0;
-                parts.api = null;
-                return parts;
-            };
-            Debug.Assert(1 < numIndi);
-
-            if (MinIndiToPartition >= numIndi)
-            {
-                parts.Count = 1;
-                parts.api = new Partition[1];
-                parts.api[0].iFirst = 0;
-                parts.api[0].iLast = numIndi - 1;
-                return parts;
-            }
-            Debug.Assert(MinIndiToPartition < numIndi);
-
-            parts.Count = numThreads;
-            parts.api = new Partition[numThreads];
-
-            // each thread compares iFirst...iLast to iFirst...numIndi-1
-            // this calculation divides the work into unequal partitions doing roughly the sasme amount of work
-            // result of the calculation is iFirst...iLast  for each thread.
-            long numTotalComparisons = (long)((numIndi + 1) * (long)numIndi) / 2;
-            long numComparisonsPerThread = (numTotalComparisons + (numThreads - 1)) / numThreads; // round up, not down
-
-
-            int iFirst = 0;
-            int iLast;
-            for (int i = 0; i < numThreads; i++)
-            {
-
-                parts.api[i].iFirst = iFirst;
-
-                // unrolled loop calculating approximations, using third approximation.
-                int numIndiLeft = (numIndi - iFirst);
-                int sizePartition;
-                int numComparisonsPerTwo = 2 * (numIndiLeft - 1);
-                {
-
-                    sizePartition = (int)((numComparisonsPerThread * 2) / numComparisonsPerTwo);
-
-                    numComparisonsPerTwo = 2 * numIndiLeft - sizePartition;
-                    sizePartition = (int)((numComparisonsPerThread * 2) / numComparisonsPerTwo);
-
-                    numComparisonsPerTwo = 2 * numIndiLeft - sizePartition;
-                    sizePartition = (int)((numComparisonsPerThread * 2) / numComparisonsPerTwo);
-                };
-
-                iLast = iFirst + sizePartition;
-                parts.api[i].iLast = iLast;
-                iFirst = iLast + 1;
-            };
-            parts.api[numThreads - 1].iLast = numIndi - 1;
-
-            Debug.Write("partitions of ");
-            Debug.Write(numIndi);
-            Debug.Write(" items over ");
-            Debug.Write(numThreads);
-            Debug.WriteLine(" logical CPUs.");
-
-            Debug.Write(numTotalComparisons);
-            Debug.Write(" comparison divided over ");
-            Debug.Write(numThreads);
-            Debug.Write(" threads averages ");
-            Debug.Write(numTotalComparisons / numThreads);
-            Debug.WriteLine(" comparisons per thread.");
-
-            for (int i = 0; i < numThreads; i++)
-            {
-                int sizePartition = parts.api[i].iLast - parts.api[i].iFirst + 1;
-                long numComparisons = (long)(2 * numIndi - parts.api[i].iLast - parts.api[i].iFirst - 2) * sizePartition / 2;
-
-
-                Debug.Write(i);
-                Debug.Write(" : ");
-                Debug.Write(parts.api[i].iFirst);
-                Debug.Write("..");
-                Debug.Write(parts.api[i].iLast);
-                Debug.Write("; ");
-                Debug.Write(sizePartition);
-                Debug.Write(" items, ");
-                Debug.Write(numComparisons);
-                Debug.WriteLine(" comparisons.");
-            }
-
-            return parts;
-        }
-
-        
-        void ProgressReporter(IProgress<int> progress, CancellationToken ct)
-        {
-            int iProgress = 0;
-            while (iProgress < progressMaximum)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                iProgress = totalProgress; // take snapshot, use that snapshot, do not keep accessing the global variable
-
-                if (iProgress > progressMaximum) break;
-
-                int iPercentage = (100 * iProgress) / progressMaximum;
-
-                if (iPercentage > iCurrentPercentage)
-                {
-                    iCurrentPercentage = iPercentage;
-                    progress.Report(iPercentage);
-                }
-
-                Task.Delay(1000);
-            }
-
-            progress.Report(100);
-        }
-
-        void MagicPartitionedIdentifyDuplicates(Individual[] aind, int iFirst, int iLast, CancellationToken ct)
-        {
-            int numIndi = aind.Length;
-            int localProgress = 0;
-            long numInner = 0;
-            long numReport = 0x000FFFL; // 2^16=1 == 65.535
-
-            Debug.Assert(0 != numIndi);
-            Debug.Assert(0 <= iFirst);
-            Debug.Assert(iFirst <= iLast);
-            Debug.Assert(iLast < numIndi);
-
-#if DEBUG
-            // the aExtra array must be sorted in non-decreasing (increasing) order
-            // this check guards against forgetting to fulfill the precondition of the array be sorted.
-            for (int i = iFirst; i <= iLast; i++)
-            {
-
-                int j = i + 1;
-                if (j == numIndi) break;
-
-                Extra exLeft = aExtra[i];
-                Extra exRight = aExtra[j];
-
-                Debug.Assert(exLeft.m4Sur <= exRight.m4Sur);
-
-                if (exLeft.m4Sur == exRight.m4Sur)
-                {
-                    Debug.Assert(exLeft.m4For <= exRight.m4For);
-                };
-            };
-#endif
-
-            for (int i = iFirst; i <= iLast; i++)
-            {
-                Individual indLeft = aind[i];
-                Extra exLeft = aExtra[i];
-
-                for (int j = i + 1; j < numIndi; j++)
-                {
-                    numInner++;
-
-                    Extra exRight = aExtra[j];
-
-                    if (exLeft.m4Sur != exRight.m4Sur) break;  // no long longer m4For match; go to next surname
-                   
-                    Debug.Assert(exLeft.m4For <= exRight.m4For); // when the m4Sur are the same, the m4For are sorted
-
-                    if (exLeft.m4For < exRight.m4For) continue;
-
-                    // at this point, the meta4 for both the surname and the given name match (and the jdStart are sorted)
-
-                    Individual indRight = aind[j];
-
-                    // if (Individual.UNKNOWN_NAME == indLeft.Name) continue;
-                    // if (Individual.UNKNOWN_NAME == indRight.Name) continue;
-                    if (0 == indLeft.Name.Length) continue;
-                    if (0 == indRight.Name.Length) continue;
-
-                    // this bit of code is an inlined version of JDDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
-                    // the julian day number provides the distance in days instead of months (so max dinstance of 5 months becomes 153 days, and 153^2 = 23409).
-                    Int32 bgnDiff = exLeft.jdStart - exRight.jdStart; bgnDiff /= 30;
-                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
-                    UInt32 bgnDiffSquared = (UInt32)(bgnDiff * bgnDiff);
-                    UInt32 endDiffSquared = (UInt32)(endDiff * endDiff);
-                    UInt32 diffSquared = bgnDiffSquared + endDiffSquared;
-                    if (25 < diffSquared) continue;
-
-                    var test = new DuplicateIndividual(indLeft, indRight);
-                    if (test.Score > 0)
-                    {
-                        buildDuplicates.Add(test);
-                        Interlocked.Increment(ref numDuplicatesFound);
-                    };
-                };
-
-                localProgress++;
-                if (numInner > numReport)
-                {
-                    // report progress
-                    if (ct.IsCancellationRequested) return;
-                    Interlocked.Add(ref totalProgress, localProgress);
-                    numInner = 0;
-                    localProgress = 0;
-                };
-            };
-
-            Interlocked.Add(ref totalProgress, localProgress);
-        }
-
-        void RegularPartionedIdentifyDuplicates(Individual[] aind, int iFirst, int iLast, CancellationToken ct)
-        {
-            int numIndi = aind.Count();
-
-            int localProgress = 0;
-            long numInner = 0;
-            //     long MASK000fFFFF   = 0x000FFFFFL ; // 2^20-1 = 1.048.575
-            long MASKFFF00000 = 0xFFF00000L; // look at the high bits only
-
-            Debug.Assert(0 <= iFirst);
-            Debug.Assert(iFirst <= iLast);
-            Debug.Assert(iLast < numIndi);
-
-            Debug.Assert(aExtra.Length == aind.Count());
-
-            for (int i = iFirst; i <= iLast; i++)  // notice <= instead of <
-            {
-                var indLeft = aind[i];
-                var exLeft = aExtra[i];
-
-                for (int j = i + 1; j < numIndi; j++)
-                {
-                    var indRight = aind[j];
-                    var exRight = aExtra[j];
-
-                    numInner++;
-
-                    // comparisons ignore sex now; comparing everyone with everyone
-                    // the original if condition was hard to read correctly, this code is less likely to be misunderstood
-                    // the original code compared "standardidsed names"; that was superfluous as we are already using metaphone
-                    // the original code calculated a distance using Pytharogas, this code uses the square of the distance, no Sqrt() operation necessary
-
-                    if (0 == indLeft.Name.Length) continue;
-                    if (0 == indRight.Name.Length) continue;
-
-                    if (exLeft.m4Sur != exRight.m4Sur) continue;
-                    if (exLeft.m4For != exRight.m4For) continue;
-
-                    // this bit of code is an inlined version of JDInstanceSquared(), which replaced BirthDate.DistanceSquared(), which replaced BirthDate.Distance()
-                    // the julian day has the distance in days instead of months; so max dinstance of 5 months becomes 153 days, and 153^2 = 23409.
-                    Int32 startDiff = exLeft.jdStart - exRight.jdStart; startDiff /= 30;
-                    Int32 endDiff = exRight.jdEnd - exRight.jdEnd; endDiff /= 30;
-                    UInt32 diffSquared = (UInt32)(startDiff * startDiff) + (UInt32)(endDiff * endDiff);
-                    if (25 < diffSquared) continue;
-
-                    var test = new DuplicateIndividual(indLeft, indRight);
-                    if (test.Score > 0)
-                    {
-                        buildDuplicates.Add(test);
-                        Interlocked.Increment(ref numDuplicatesFound);
-                    };
-                };
-
-                localProgress++;
-                if (0 == (MASKFFF00000 & numInner)) continue;
-
-                // report progress
-                if (ct.IsCancellationRequested) return;
-                Interlocked.Add(ref totalProgress, localProgress);
-                numInner = 0;
-                localProgress = 0;
-            };
-
-            Interlocked.Add(ref totalProgress, localProgress);
-        }
-
-
-        // BUG: code does handle the case of a GEDCOM file with zero INDI records.
-        // BUG: parameter value needs a better name. Not clear at all what it is for.
-        public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList
-        (
-            int value, 
-            IProgress<int> progress,
-            IProgress<int> maximum, 
-            CancellationToken ct
-        )
-        {
-            //log.Debug("FamilyTree.GenerateDuplicatesList");
-
-            bool bMetaSorted = true;
-            
-            if (buildDuplicates != null)
+            if (duplicates != null)
             {
                 maximum.Report(MaxDuplicateScore());
-                return BuildDuplicateList(value, progress); // we have already processed the duplicates since the file was loaded
+                return BuildDuplicateList(value, progress, progressText); // we have already processed the duplicates since the file was loaded
             }
-            buildDuplicates = new ConcurrentBag<DuplicateIndividual>();
-
-            // no more male / female split, but a single list for all genders.
-            // no longer use ILst, but Array; we don't need any of the list features, we only need performance for a fixed-size array
-            Individual[] aind = individuals.ToArray();
-            int numIndi = aind.Count();
-            Debug.Assert(0 != numIndi);
-
-            InitExtra(aind);
-            Debug.Assert(aind.Length == aExtra.Length);
-
-            progressMaximum = individuals.Count();
-            totalProgress = 0;
-            iCurrentPercentage = 0;
-            // Debug.Assert(numIndi == progressMaximum) ;
-
+            var groups = individuals.Where(x => x.Name != Individual.UNKNOWN_NAME).GroupBy(x => x.SurnameMetaphone).Select(x => x.ToList()).ToList();
+            int numgroups = groups.Count;
             progress.Report(0);
-
-            int numThreads = Environment.ProcessorCount;
-
-            if (bMetaSorted)
+            totalComparisons = 0;
+            maxComparisons = groups.Sum(x => x.Count * (x.Count - 1L) / 2);
+            currentPercentage = 0;
+            duplicatesFound = 0;
+            buildDuplicates = new ConcurrentBag<DuplicateIndividual>();
+            var tasks = new List<Task>();
+            try
             {
-                Array.Sort(aExtra, aind);
-
-                Partitions parts = DumbIndiPartitioner(numIndi, numThreads);
-                Debug.Assert(0 != parts.Count);
-
-                Task[] tasks = new Task[parts.Count + 1];
-                try
+                foreach (var group in groups)
                 {
-                    for (int i = 0; i < parts.Count; i++)
-                    {
-                        var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
-                        tasks[j] = Task.Run(() => { MagicPartitionedIdentifyDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ct); }, ct);
-                    };
-                    // we do not wait on the progress reporter, only on the workers
-                    tasks[parts.Count] = Task.Run(() => ProgressReporter(progress, ct), ct);
-
-                    await Task.WhenAll(tasks).ConfigureAwait(true);
-                    Debug.Assert(numIndi == totalProgress);
+                    var task = Task.Run(() => IdentifyDuplicates(ignoreUnknown, group, ct), ct);
+                    tasks.Add(task);
                 }
-                catch (OperationCanceledException)
-                {
-                    progress.Report(0);
-                    maximum.Report(10);
-                    buildDuplicates = null;
-                    return null;
-                };
-                maximum.Report(MaxDuplicateScore());
-                DeserializeNonDuplicates();
-                return BuildDuplicateList(value, progress);
+                var progressTask = Task.Run(() => ProgressReporter(progress, progressText, ct), ct);
+                tasks.Add(progressTask);
+                await Task.WhenAll(tasks).ConfigureAwait(true);
             }
-            else
+            catch (OperationCanceledException)
             {
-                Partitions parts = SmartIndiPartitioner(numIndi, numThreads);
-                Debug.Assert(0 != parts.Count);
-
-                Task[] tasks = new Task[parts.Count + 1];
-                try
-                {
-                    for (int i = 0; i < parts.Count; i++)
-                    {
-                        var j = i; // modified closure magic to prevent System.IndexOutOfRangeException 
-                        tasks[j] = Task.Run(() => { RegularPartionedIdentifyDuplicates(aind, parts.api[j].iFirst, parts.api[j].iLast, ct); }, ct);
-                    };
-                    tasks[parts.Count] = Task.Run(() => ProgressReporter(progress, ct), ct);
-
-                    await Task.WhenAll(tasks).ConfigureAwait(true);
-                }
-                catch (OperationCanceledException)
-                {
-                    progress.Report(0);
-                    maximum.Report(10);
-                    buildDuplicates = null;
-                    return null;
-                }
+                progress.Report(0); // if user cancels then simply clear progress do not throw away work done
+            }
+            catch (Exception e)
+            {
+                UIHelpers.ShowMessage($"Duplicate report encountered a problem. Message was: {e.Message}");
+            }
+            try
+            {
+                duplicates = new SortableBindingList<DuplicateIndividual>(buildDuplicates.ToList());
                 maximum.Report(MaxDuplicateScore());
                 DeserializeNonDuplicates();
-                return BuildDuplicateList(value, progress);
-            };
-
+                return BuildDuplicateList(value, progress, progressText);
+            }
+            catch (Exception e)
+            {
+                UIHelpers.ShowMessage($"Duplicate report encountered a problem. Message was: {e.Message}");
+            }
+            return null;
         }
 
-
-        // BUG: this is incredibly inefficient. You are sorting the result anyway. Sort into an array, then retrieve the highest score.
         int MaxDuplicateScore()
         {
             int score = 0;
@@ -3985,76 +3383,61 @@ namespace FTAnalyzer
             return score;
         }
 
-        // ABANDONED APPROACH. CODE CAN BE DELETED
-        // Using Parallel.For for the outer loop inside the IdentifyDuplicates() routine results in simpler code, but uses massive amounts of memory
-        // Parallel.For() internally creates multiple tasks, so this routine is at times competing with itself for access to variables
-        // Hence the use of of ConccurrentBag() for collecting duplicates, and InterlockedIncrement() for incremeting the progress counter
-        // we <em>cannot</em> simply assign outer loop index i to totallProgrees, as Parallel.For() makes no garantuee about execution order whatsoever
-        // also tried using a .NET range partitioner, like so
-        //
-        //  var rangePartitioner = Partitioner.Create(0, count, ChunkSize);
-        //
-        //  ParallelOptions po = new ParallelOptions();
-        //  po.MaxDegreeOfParallelism = Environment.ProcessorCount;
-        //
-        //  Parallel.ForEach(rangePartitioner, po, range =>
-        //  {
-        //        IdentifyPartitionDuplicates(liIndi, range.Item1, range.Item2, ct);
-        //  }
-        // This should save overhdead and be faster, yet turned out to be slower.
-        void IdentifyAllDuplicatesInParallel(IList<Individual> liIndi, CancellationToken ct)
+        void IdentifyDuplicates(bool ignoreUnknown, IList<Individual> list, CancellationToken ct)
         {
-            //log.Debug("FamilyTree.IdentifyDuplicates");
-            int count = liIndi.Count;
-
-            ParallelOptions po = new ParallelOptions();
-            po.MaxDegreeOfParallelism = Environment.ProcessorCount;
-
-            // parallel variation of: for ( int i = 0 ; i <= count ; i ++ ) 
-            Parallel.For(0, count, po, i =>
+            for (var i = 0; i < list.Count; i++)
             {
-                var indLeft = liIndi[i];
-
-                for (int j = i + 1; j < count; j++)
+                var indA = list[i];
+                for (var j = i + 1; j < list.Count; j++)
                 {
-                    var indRight = liIndi[j];
-
-                    // removed condition indLeft.GenderMatches(indRight) ; all comparisons now ignore sex.
-                    if (indLeft.Name != Individual.UNKNOWN_NAME && indRight.Name != Individual.UNKNOWN_NAME)
+                    var indB = list[j];
+                    if ((indA.ForenameMetaphone.Equals(indB.ForenameMetaphone) || indA.StandardisedName.Equals(indB.StandardisedName)) &&
+                       indA.BirthDate.DistanceSquared(indB.BirthDate) < 5)
                     {
-                        if (indLeft.SurnameMetaphone.Equals(indRight.SurnameMetaphone) &&
-                            (indLeft.ForenameMetaphone.Equals(indRight.ForenameMetaphone) || indLeft.StandardisedName.Equals(indRight.StandardisedName)) &&
-                            indLeft.BirthDate.Distance(indRight.BirthDate) < 5)
+                        var test = new DuplicateIndividual(indA, indB);
+                        if (test.Score > 0)
                         {
-                            var test = new DuplicateIndividual(indLeft, indRight);
-                            if (test.Score > 0)
-                            {
-                                buildDuplicates.Add(test);
-                                Interlocked.Increment(ref numDuplicatesFound);
-                            }
+                            buildDuplicates.Add(test);
+                            Interlocked.Increment(ref duplicatesFound);
                         }
                     }
+                    Interlocked.Increment(ref totalComparisons);
+                    if (ct.IsCancellationRequested)
+                        return;
                 }
-
-                // <em>cannot</em> simply assign outer loop index i to totallProgrees, as Parallel.For() makes no garantuee about execution order whatsoever
-                // locked-incrementing a shared counter is the standard technique for tracking progress
-                Interlocked.Increment(ref totalProgress);
-
-                po.CancellationToken.ThrowIfCancellationRequested();
-
-            }); // Parallel.For
+            }
         }
 
-        public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList(int minScore, IProgress<int> progress)
+        void ProgressReporter(IProgress<int> progress, IProgress<string> progressText, CancellationToken ct)
+        {
+            while (totalComparisons < maxComparisons && currentPercentage < 100)
+            {
+                Task.Delay(1000);
+                ct.ThrowIfCancellationRequested();
+                var val = (int)(100 * totalComparisons / maxComparisons);
+                if (val > currentPercentage)
+                {
+                    currentPercentage = val;
+                    if (val < 100)
+                        progressText.Report($"Done {totalComparisons:N0} of {maxComparisons:N0} - {val}%\nFound {duplicatesFound:N0} possible duplicates");
+                    else
+                        progressText.Report($"Completed {duplicatesFound:N0} possible duplicates found. Preparing display.");
+                    progress.Report(val);
+                }
+            }
+        }
+
+        public SortableBindingList<IDisplayDuplicateIndividual> BuildDuplicateList(int minScore, IProgress<int> progress, IProgress<string> progressText)
         {
             var select = new SortableBindingList<IDisplayDuplicateIndividual>();
-            long numDuplicates = buildDuplicates.Count;
+            long numDuplicates = duplicates.Count;
             long numProcessed = 0;
-            iCurrentPercentage = 0;
+            currentPercentage = 0;
             progress.Report(0);
+            progressText.Report("Preparing Display");
             if (NonDuplicates is null)
                 DeserializeNonDuplicates();
-            foreach (DuplicateIndividual dup in buildDuplicates)
+            foreach (DuplicateIndividual dup in duplicates)
             {
                 if (dup.Score >= minScore)
                 {
@@ -4068,13 +3451,15 @@ namespace FTAnalyzer
                 if(numProcessed % 20 == 0)
                 {
                     var val = (int)(100 * numProcessed / numDuplicates);
-                    if (val > iCurrentPercentage)
+                    if (val > currentPercentage)
                     {
-                        iCurrentPercentage = val;
+                        currentPercentage = val;
+                        progressText.Report($"Preparing Display. {numProcessed:N0} of {numDuplicates:N0} - {val}%");
                         progress.Report(val);
                     }
                 }
             }
+            progressText.Report("Prepared records. Sorting - Please wait");
             return select;
         }
 

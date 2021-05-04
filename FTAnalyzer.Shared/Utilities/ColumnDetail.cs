@@ -15,14 +15,15 @@ namespace FTAnalyzer.Utilities
         public float ColumnWidth { get; }
 #if __PC__
         public DataGridViewContentAlignment Alignment { get; }
+        public ColumnType TypeofColumn { get; }
 #elif __MACOS__
         public NSTextAlignment Alignment { get; }
 #endif
-        public ColumnDetail(string name, float width) : this(name, width, ColumnAlignment.Left) { }
-        public ColumnDetail(string name, float width, ColumnAlignment alignment)
+        public ColumnDetail(string name, float width, ColumnAlignment alignment = ColumnAlignment.Left, ColumnType columnType = ColumnType.TextBox)
         {
             ColumnName = name;
             ColumnWidth = width;
+            TypeofColumn = columnType;
 #if __PC__
             switch(alignment)
             {
@@ -40,5 +41,7 @@ namespace FTAnalyzer.Utilities
 #endif
         }
         public enum ColumnAlignment { Left, Right, Center };
+
+        public enum ColumnType { TextBox, LinkCell, CheckBox, Icon };
     }
 }
