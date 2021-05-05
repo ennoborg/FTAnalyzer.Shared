@@ -1,4 +1,5 @@
 ﻿using FTAnalyzer.Utilities;
+using GeneGenie.Gedcom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,22 +22,13 @@ namespace FTAnalyzer
         public string SourceMedium { get; private set; }
         public List<Fact> Facts { get; private set; }
 
-        public FactSource(XmlNode node)
+        public FactSource(GedcomSourceRecord node)
         {
-            bool noteRead = false;
-            SourceID = node.Attributes["ID"].Value;
-            SourceTitle = FamilyTree.GetText(node, "TITL", true);
-            Publication = FamilyTree.GetText(node, "PUBL", true);
-            Author = FamilyTree.GetText(node, "AUTH", true);
-            SourceText = FamilyTree.GetText(node, "TEXT", true);
-            if (string.IsNullOrEmpty(SourceText))
-            {
-                SourceText = FamilyTree.GetText(node, "NOTE", true);
-                noteRead = true;
-            }
-            SourceMedium = FamilyTree.GetText(node, "REPO/CALN/MEDI", true);
-            if (!noteRead && SourceMedium.Length == 0)
-                SourceMedium = FamilyTree.GetText(node, "NOTE/CONC", true);
+            SourceID = node.XrefId;
+            SourceTitle = node.Title;
+            Publication = node.PublicationFacts;
+            Author = node.Originator;
+            SourceText = node.Text;
             Facts = new List<Fact>();
         }
 
