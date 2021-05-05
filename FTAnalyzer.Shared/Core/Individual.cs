@@ -24,10 +24,8 @@ namespace FTAnalyzer
         public const int UNKNOWN = 1, DIRECT = 2, DESCENDANT = 4, BLOOD = 8, MARRIEDTODB = 16, MARRIAGE = 32, LINKED = 64, UNSET = 128;
         public const string UNKNOWN_NAME = "UNKNOWN";
 
-        public string IndividualID { get; private set; }
         string _forenames;
         string _fullname;
-        string _gender;
         int _relationType;
         List<Fact> _allfacts;
         List<Fact> _allFileFacts;
@@ -53,10 +51,12 @@ namespace FTAnalyzer
         public string Alias { get; set; }
         public IList<FactLocation> Locations { get; }
 
+        private GedcomIndividualRecord _indi;
+
         #region Constructors
         Individual()
         {
-            IndividualID = string.Empty;
+            _indi = null;
             _forenames = string.Empty;
             Surname = string.Empty;
             forenameMetaphone = new DoubleMetaphone();
@@ -66,7 +66,6 @@ namespace FTAnalyzer
             UnrecognisedCensusNotes = string.Empty;
             FamilySearchID = string.Empty;
             IsFlaggedAsLiving = false;
-            Gender = "U";
             Alias = string.Empty;
             Title = string.Empty;
             Suffix = string.Empty;
@@ -93,9 +92,8 @@ namespace FTAnalyzer
         public Individual(GedcomIndividualRecord node, IProgress<string> outputText)
             : this()
         {
-            IndividualID = node.XrefId;
+            _indi = node;
             Name = node.Names[0].Name;
-            Gender = node.SexChar;
             forenameMetaphone = new DoubleMetaphone(Forename);
             surnameMetaphone = new DoubleMetaphone(Surname);
             StandardisedName = FamilyTree.Instance.GetStandardisedName(IsMale, Forename);
@@ -151,7 +149,6 @@ namespace FTAnalyzer
                 _fullname = i._fullname;
                 SortedName = i.SortedName;
                 IsFlaggedAsLiving = i.IsFlaggedAsLiving;
-                _gender = i._gender;
                 Alias = i.Alias;
                 Ahnentafel = i.Ahnentafel;
                 BudgieCode = i.BudgieCode;
@@ -296,13 +293,7 @@ namespace FTAnalyzer
 
         public string Gender
         {
-            get => _gender;
-            private set
-            {
-                _gender = value;
-                if (_gender.Length == 0)
-                    _gender = "U";
-            }
+            get => _indi.SexChar;
         }
 
         public bool GenderMatches(Individual that) => Gender == that.Gender || Gender == "U" || that.Gender == "U";
@@ -639,7 +630,7 @@ namespace FTAnalyzer
 
         #region Boolean Tests
 
-        public bool IsMale => _gender.Equals("M");
+        public bool IsMale => Gender.Equals("M");
 
         public bool IsInFamily => Infamily;
 
@@ -1571,6 +1562,21 @@ namespace FTAnalyzer
         public int CensusDateFactCount(CensusDate censusDate) => Facts.Count(f => f.IsValidCensus(censusDate));
 
         public bool IsLivingError => IsFlaggedAsLiving && DeathDate.IsKnown;
+
+        public string IndividualID
+        {
+            get
+            {
+                if (_indi != null)
+                    return _indi.XRefID;
+                else
+                    return null;
+            }
+            set
+            {   if (_indi != null)
+                    _indi.XRefID = value;
+            }
+        }
 
         public int CensusReferenceCount(CensusReference.ReferenceStatus referenceStatus) 
             => AllFacts.Count(f => f.IsCensusFact && f.CensusReference != null && f.CensusReference.Status.Equals(referenceStatus));
