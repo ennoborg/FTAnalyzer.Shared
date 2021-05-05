@@ -96,6 +96,7 @@ namespace FTAnalyzer
             Name = node.Names[0].Name;
             forenameMetaphone = new DoubleMetaphone(Forename);
             surnameMetaphone = new DoubleMetaphone(Surname);
+            Notes = _indi.Notes.ToString();
             StandardisedName = FamilyTree.Instance.GetStandardisedName(IsMale, Forename);
             Fact nameFact = new Fact(IndividualID, Fact.INDI, FactDate.UNKNOWN_DATE, FactLocation.BLANK_LOCATION,Name, true, true, this);
             AddFact(nameFact);
@@ -374,6 +375,14 @@ namespace FTAnalyzer
         {
             get
             {
+                var birth = _indi.Birth;
+
+                if (birth != null)
+                {
+                    var birthDate = birth.Date?.Date1;
+                    var birthPlace = birth.Place?.Name;
+                }
+
                 Fact f = GetPreferredFact(Fact.BIRTH);
                 if (f != null)
                     return f;
@@ -806,28 +815,6 @@ namespace FTAnalyzer
         #endregion
 
         #region Fact Functions
-
-        void AddIndividualsSources(XmlNode node, IProgress<string> outputText)
-        {
-            Fact nameFact = GetFacts(Fact.INDI).First();
-            // now iterate through source elements of the fact finding all sources
-            XmlNodeList list = node.SelectNodes("SOUR");
-            foreach (XmlNode n in list)
-            {
-                if (n.Attributes["REF"] != null)
-                {   // only process sources with a reference
-                    string srcref = n.Attributes["REF"].Value;
-                    FactSource source = FamilyTree.Instance.GetSource(srcref);
-                    if (source != null)
-                    {
-                        nameFact.Sources.Add(source);
-                        source.AddFact(nameFact);
-                    }
-                    else
-                        outputText.Report($"Source {srcref} not found.\n");
-                }
-            }
-        }
 
         void AddFacts(XmlNode node, string factType, IProgress<string> outputText) => AddFacts(node, factType, outputText, null);
         
