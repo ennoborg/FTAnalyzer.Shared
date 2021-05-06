@@ -111,7 +111,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)GedcomParser\AnselEncoding.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GedcomParser\AnselInputStreamReader.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GedcomParser\AnselOutputStreamWriter.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)GedcomParser\GedcomToXml.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utilities\DoubleMetaphone.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utilities\EnhancedTextInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utilities\ExtensionMethods.cs" />

@@ -51,7 +51,7 @@ namespace FTAnalyzer
         public string Alias { get; set; }
         public IList<FactLocation> Locations { get; }
 
-        private GedcomIndividualRecord _indi;
+        private readonly GedcomIndividualRecord _indi;
 
         #region Constructors
         Individual()
@@ -374,14 +374,6 @@ namespace FTAnalyzer
         {
             get
             {
-                var birth = _indi.Birth;
-
-                if (birth != null)
-                {
-                    var birthDate = birth.Date?.Date1;
-                    var birthPlace = birth.Place?.Name;
-                }
-
                 Fact f = GetPreferredFact(Fact.BIRTH);
                 if (f != null)
                     return f;
@@ -811,102 +803,9 @@ namespace FTAnalyzer
             string now = FactDate.Format(FactDate.FULL, when);
             return GetMinAge(new FactDate(now));
         }
+
         #endregion
-
         #region Fact Functions
-
-        void AddFacts(XmlNode node, string factType, IProgress<string> outputText) => AddFacts(node, factType, outputText, null);
-        
-        void AddFacts(XmlNode node, string factType, IProgress<string> outputText, string nonStandardFactType)
-        {
-            XmlNodeList list = nonStandardFactType != null ? node.SelectNodes(nonStandardFactType) : node.SelectNodes(factType);
-            bool preferredFact = true;
-            foreach (XmlNode n in list)
-            {
-                try
-                {
-                    if (preferredFact || GeneralSettings.Default.IncludeAlternateFacts || Fact.IsAlwaysLoadFact(factType))
-                    {  // add only preferred facts or all census facts
-                        if (!preferredFact || factType != Fact.NAME)
-                        { // skip first name face as already added
-                            Fact f = new Fact(n, this, preferredFact, null, outputText);
-                            if (f.FactType == Fact.NAME && string.IsNullOrEmpty(Alias))
-                                Alias = f.Comment;
-                            if (f.FactDate.SpecialDate)
-                                ProcessSpecialDate(n, f, preferredFact, outputText);
-                            if (nonStandardFactType != null)
-                                f.ChangeNonStandardFactType(factType);
-                            f.Location.FTAnalyzerCreated = false;
-                            if (!f.Location.IsValidLatLong)
-                                outputText.Report($"Found problem with Lat/Long for Location '{f.Location}' in facts for {IndividualID}: {Name}");
-                            AddFact(f);
-                            if (f.GedcomAge != null && f.GedcomAge.CalculatedBirthDate != FactDate.UNKNOWN_DATE)
-                            {
-                                string reason = $"Calculated from {f} with Age: {f.GedcomAge.GEDCOM_Age}";
-                                Fact calculatedBirth = new Fact(IndividualID, Fact.BIRTH_CALC, f.GedcomAge.CalculatedBirthDate, FactLocation.UNKNOWN_LOCATION, reason, false, true);
-                                AddFact(calculatedBirth);
-                            }
-                        }
-                    }
-                }
-                catch (InvalidXMLFactException ex)
-                {
-                    outputText.Report($"Error with Individual : {IndividualRef}\n       Invalid fact : {ex.Message}");
-                }
-                preferredFact = false;
-            }
-        }
-
-        void ProcessSpecialDate(XmlNode n, Fact addedFact, bool preferredFact, IProgress<string> outputText)
-        {
-            if (BirthDate.IsKnown)
-            {
-                int years;
-                switch (addedFact.FactDate.OriginalString.ToUpper())
-                {
-                    case "STILLBORN":
-                        years = 0;
-                        break;
-                    case "INFANT":
-                        years = 5;
-                        break;
-                    case "CHILD":
-                        years = 14;
-                        break;
-                    case "YOUNG":
-                        years = 21;
-                        break;
-                    case "UNMARRIED":
-                    case "NEVER MARRIED":
-                    case "NOT MARRIED":
-                        years = -2;
-                        break;
-                    default:
-                        years = -1;
-                        break;
-                }
-                if (years >= 0 && addedFact.FactType == Fact.DEATH)  //only add a death fact if text is one of the death types
-                {
-                    FactDate deathdate = BirthDate.AddEndDateYears(years);
-                    Fact f = new Fact(n, this, preferredFact, deathdate, outputText);
-                    AddFact(f);
-                }
-                else
-                {
-                    Fact f = new Fact(n, this, preferredFact, FactDate.UNKNOWN_DATE, outputText); // write out death fact with unknown date
-                    AddFact(f);
-                    f = new Fact(string.Empty, Fact.UNMARRIED, FactDate.UNKNOWN_DATE, FactLocation.UNKNOWN_LOCATION, string.Empty, true, true);
-                    AddFact(f);
-                }
-            }
-        }
-        void AddNonStandardFacts(XmlNode node, IProgress<string> outputText)
-        {
-            foreach(KeyValuePair<string, string> factType in Fact.NON_STANDARD_FACTS)
-            {
-                AddFacts(node, factType.Value, outputText, factType.Key);
-            }
-        }
 
         public void AddFact(Fact fact)
         {
