@@ -368,7 +368,7 @@ namespace FTAnalyzer
                 status = Geocode.GEDCOM_USER;
         }
 
-        FactLocation(string location)
+        public FactLocation(string location)
             : this()
         {
             if (!string.IsNullOrEmpty(location))

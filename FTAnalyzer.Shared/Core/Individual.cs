@@ -101,32 +101,31 @@ namespace FTAnalyzer
             Fact nameFact = new Fact(IndividualID, Fact.INDI, FactDate.UNKNOWN_DATE, FactLocation.BLANK_LOCATION,Name, true, true, this);
             AddFact(nameFact);
 
-            if (node.Birth != null && node.Birth.Date != null)
-            {
-                FactDate factDate;
-                try
-                {
-                    factDate = new FactDate(node.Birth.Date.DateString);
-                }
-                catch
-                {
-                    factDate = FactDate.UNKNOWN_DATE;
-                }
-                AddFact(new Fact(IndividualID, Fact.BIRTH, factDate, FactLocation.BLANK_LOCATION));
-            }
+            var events = node.Events;
 
-            if (node.Death != null && node.Death.Date != null)
+            foreach (var e in events)
             {
                 FactDate factDate;
+                FactLocation factLocation;
+
                 try
                 {
-                    factDate = new FactDate(node.Death.Date.DateString);
+                    factDate = new FactDate(e.Date?.DateString);
                 }
                 catch
                 {
                     factDate = FactDate.UNKNOWN_DATE;
                 }
-                AddFact(new Fact(IndividualID, Fact.DEATH, factDate, FactLocation.BLANK_LOCATION));
+                try
+                {
+                    factLocation = new FactLocation(e.Place?.Name);
+                }
+                catch
+                {
+                    factLocation = FactLocation.BLANK_LOCATION;
+                }
+
+                AddFact(new Fact(IndividualID, e.GedcomTag, factDate, factLocation));
             }
 
             if (GeneralSettings.Default.AutoCreateCensusFacts)
