@@ -96,9 +96,36 @@ namespace FTAnalyzer
                         Wife.QuestionGender(this, false);
                 }
                 Children.ToList().Sort(new BirthDateComparer());
+
+                var events = node.Events;
+
+                foreach (var e in events)
+                {
+                    FactDate factDate;
+                    FactLocation factLocation;
+
+                    try
+                    {
+                        factDate = new FactDate(e.Date?.DateString);
+                    }
+                    catch
+                    {
+                        factDate = FactDate.UNKNOWN_DATE;
+                    }
+                    try
+                    {
+                        factLocation = new FactLocation(e.Place?.Name);
+                    }
+                    catch
+                    {
+                        factLocation = FactLocation.BLANK_LOCATION;
+                    }
+
+                    Facts.Add(new Fact(FamilyID, e.GedcomTag, factDate, factLocation));
+                }
+
             }
         }
-
 
         void CheckChildrenStatusCounts()
         {
@@ -126,32 +153,6 @@ namespace FTAnalyzer
                 ExpectedDead += resultD;
         }
 
-        void AddParentAndChildrenFacts(Individual child, Individual parent, ParentalRelationship.ParentalRelationshipType prType)
-        {
-            if (parent != null)
-            {
-                string parentComment;
-                string childrenComment;
-                if (prType == ParentalRelationship.ParentalRelationshipType.UNKNOWN)
-                {
-                    parentComment = $"Child of {parent.IndividualID}: {parent.Name}";
-                    childrenComment = $"Parent of {child.IndividualID}: {child.Name}";
-                }
-                else
-                {
-                    string titlecase = EnhancedTextInfo.ToTitleCase(prType.ToString().ToLower());
-                    parentComment = $"{titlecase}  child of {parent.IndividualID}: {parent.Name}";
-                    childrenComment = $"{titlecase} parent of {child.IndividualID}: {child.Name}";
-                }
-
-                Fact parentFact = new Fact(parent.IndividualID, Fact.PARENT, child.BirthDate, child.BirthLocation, parentComment, true, true);
-                child.AddFact(parentFact);
-
-                Fact childrenFact = new Fact(child.IndividualID, Fact.CHILDREN, child.BirthDate, child.BirthLocation, childrenComment, true, true);
-                parent.AddFact(childrenFact);
-            }
-        }
-
         public Family(Individual ind, string familyID)
             : this(familyID)
         {
@@ -173,65 +174,6 @@ namespace FTAnalyzer
             ExpectedAlive = f.ExpectedAlive;
             ExpectedDead = f.ExpectedDead;
             FamilyType = UNKNOWN;
-        }
-
-        void AddFacts(XmlNode node, string factType, IProgress<string> outputText)
-        {
-            XmlNodeList list = node.SelectNodes(factType);
-            bool preferredFact = true;
-            foreach (XmlNode n in list)
-            {
-                try
-                {
-                    Fact f = new Fact(n, this, preferredFact, outputText);
-                    f.Location.FTAnalyzerCreated = false;
-                    if (!f.Location.IsValidLatLong)
-                        outputText.Report($"Found problem with Lat/Long for Location '{f.Location}' in facts for {FamilyID}: {FamilyName}");
-                    if (string.IsNullOrEmpty(f.Comment) && Husband != null && Wife != null && f.IsMarriageFact)
-                    {
-                        string description = Fact.GetFactTypeDescription(factType);
-                        f.Comment = $"{description} of {Husband.Name} and {Wife.Name}";
-                    }
-                    if (f.FactType != Fact.CENSUS)
-                    {
-                        Facts.Add(f);
-                        if (!_preferredFacts.ContainsKey(f.FactType))
-                            _preferredFacts.Add(f.FactType, f);
-                    }
-                    else
-                    {
-                        // Handle a census fact on a family.
-                        if (GeneralSettings.Default.OnlyCensusParents)
-                        {
-                            if (Husband != null && Husband.IsAlive(f.FactDate))
-                                Husband.AddFact(f);
-                            if (Wife != null && Wife.IsAlive(f.FactDate))
-                                Wife.AddFact(f);
-                        }
-                        else
-                        {
-                            // all members of the family who are alive get the census fact
-                            foreach (Individual person in Members.Where(p => p.IsAlive(f.FactDate)))
-                                person.AddFact(f);
-                        }
-                    }
-                }
-                catch (InvalidXMLFactException ex)
-                {
-                    outputText.Report($"Error with Family : {FamilyID}\n       Invalid fact : {ex.Message}");
-                }
-                catch (TextFactDateException te)
-                {
-                    if (te.Message == "UNMARRIED" || te.Message == "NEVER MARRIED" || te.Message == "NOT MARRIED")
-                    {
-                        Fact f = new Fact(string.Empty, Fact.UNMARRIED, FactDate.UNKNOWN_DATE, FactLocation.UNKNOWN_LOCATION, string.Empty, true, true);
-                        Husband?.AddFact(f);
-                        Wife?.AddFact(f);
-                        Facts.Add(f);
-                    }
-                }
-                preferredFact = false;
-            }
         }
 
         public void FixFamilyID(int length)
