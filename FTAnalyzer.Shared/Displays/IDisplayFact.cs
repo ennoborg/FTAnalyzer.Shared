@@ -42,10 +42,6 @@ namespace FTAnalyzer
         string FoundLocation { get; }
         [ColumnDetail("Found Result Type", 130)]
         string FoundResultType { get; }
-        [ColumnDetail("Census Reference", 250)]
-        CensusReference CensusReference { get; }
-        [ColumnDetail("Census Ref. Year", 100)]
-        string CensusRefYear { get; }
         [ColumnDetail("Comments", 250)]
         string Comment { get; }
         [ColumnDetail("Num Sources", 75, ColumnDetail.ColumnAlignment.Right)]

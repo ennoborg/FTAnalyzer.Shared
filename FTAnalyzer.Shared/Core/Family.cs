@@ -314,17 +314,6 @@ namespace FTAnalyzer
                 ignoreCase ? Members.Any(x => x.Surname.Equals(surname, StringComparison.OrdinalIgnoreCase)) :
                              Members.Any(x => x.Surname.Equals(surname));
 
-        public bool On1911Census
-        {
-            get
-            {
-                if (MarriageDate.IsKnown && MarriageDate.IsAfter(CensusDate.UKCENSUS1911)) return false;
-                if (Husband != null && Husband.IsCensusDone(CensusDate.UKCENSUS1911)) return true;
-                if (Wife != null && Wife.IsCensusDone(CensusDate.UKCENSUS1911)) return true;
-                return false;
-            }
-        }
-
         // only check shared facts for children status
         IEnumerable<Fact> GoodChildrenStatusFacts =>
                 Facts.Where(f => f.FactType == Fact.CHILDREN1911 && f.FactErrorLevel == Fact.FactError.GOOD);

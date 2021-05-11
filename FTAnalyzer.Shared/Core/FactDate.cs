@@ -959,15 +959,6 @@ namespace FTAnalyzer
             return StartDate.Year == factDate.StartDate.Year;
         }
 
-        public bool CensusYearMatches(CensusDate censusDate)
-        {
-            if (IsAfter(censusDate)) return false; // if the date is after the census date then it can't be a census record
-            if (censusDate is null) return false;
-            if (StartDate.Year != EndDate.Year) return false;
-            // both this & that have exact years now return whether this and that match given a census date can go over a year end
-            return StartDate.Year == censusDate.StartDate.Year || StartDate.Year == censusDate.EndDate.Year;
-        }
-
         public bool Contains(FactDate that) => that is null || StartDate < that.StartDate && EndDate > that.EndDate;
 
         public bool IsLongYearSpan => Math.Abs(StartDate.Year - EndDate.Year) > 5;
@@ -1004,17 +995,6 @@ namespace FTAnalyzer
         }
 
         double DaysSpan => EndDate.Subtract(StartDate).TotalDays;
-
-        public int MonthsDifference(CensusDate when)
-        {
-            if (when is null) return 0;
-            if (DaysSpan > 366)
-                return 12;
-            var x = EndDate.Subtract(when.StartDate).TotalDays/30;
-            var y = when.EndDate.Subtract(StartDate).TotalDays/30;
-            double minGap = Math.Min(x, y);
-            return (int)minGap;
-        }
 
         public double DaysDifference(FactDate when)
         {

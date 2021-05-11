@@ -413,7 +413,6 @@ namespace FTAnalyzer
             Place = string.Empty;
             Location = FactLocation.BLANK_LOCATION;
             Sources = new List<FactSource>();
-            CensusReference = CensusReference.UNKNOWN;
             CertificatePresent = false;
             FactErrorLevel = FactError.GOOD;
             FactErrorMessage = string.Empty;
@@ -468,22 +467,9 @@ namespace FTAnalyzer
                     if (FactType.Equals(CUSTOM_ATTRIBUTE) || FactType.Equals(CUSTOM_EVENT) || FactType.Equals(CUSTOM_FACT))
                     {
                         string tag = FamilyTree.GetText(node, "TYPE", false).ToUpper();
-                        if(tag.StartsWith("CENSUS") || tag.StartsWith("1939 REGISTER"))
-                        {
-                            FactType = CENSUS;
-                            CheckCensusDate(tag);
-                        }
-                        else if (CUSTOM_TAGS.TryGetValue(tag, out string factType))
-                        {
-                            FactType = factType;
-                            CheckCensusDate(tag);
-                        }
-                        else
-                        {
-                            FactType = UNKNOWN;
-                            FamilyTree.Instance.CheckUnknownFactTypes(tag);
-                            Tag = string.IsNullOrEmpty(tag) ? "** Custom Fact with no Fact Type ERROR **" : tag;
-                        }
+                        FactType = UNKNOWN;
+                        FamilyTree.Instance.CheckUnknownFactTypes(tag);
+                        Tag = string.IsNullOrEmpty(tag) ? "** Custom Fact with no Fact Type ERROR **" : tag;
                     }
                     if(FactType.Equals(NAME))
                     {
@@ -500,14 +486,6 @@ namespace FTAnalyzer
                     if (!string.IsNullOrEmpty(xmlLat) && !string.IsNullOrEmpty(xmlLong))
                         Location.GEDCOMLatLong = true;
                     
-                    // only check UK census dates for errors as those are used for colour census
-                    if (FactType.Equals(CENSUS) && Location.IsUnitedKingdom)
-                        CheckCensusDate("Census");
-
-                    // need to check residence after setting location
-                    if (FactType.Equals(RESIDENCE) && GeneralSettings.Default.UseResidenceAsCensus)
-                        CheckResidenceCensusDate();
-
                     // check Children Status is valid
                     if (FactType.Equals(CHILDREN1911))
                         CheckValidChildrenStatus(node);
@@ -530,22 +508,8 @@ namespace FTAnalyzer
                             }
                             else
                                 outputText.Report($"Source {srcref} not found.\n");
-                            if (IsCensusFact)
-                                CensusReference = new CensusReference(this, n);
                         }
                     }
-                    // if we have checked the sources and no census ref see if its been added as a comment to this fact
-                    if (IsCensusFact)
-                    {
-                        CheckForSharedFacts(node);
-
-                        if (!CensusReference.IsKnownStatus)
-                            CensusReference = new CensusReference(this, node, CensusReference); //pass in existing reference so as to not lose any unknown references
-                        else if (!CensusReference.IsGoodStatus)
-                            CensusReference.CheckFullUnknownReference(CensusReference.Status);
-                    }
-                    if(GeneralSettings.Default.ConvertResidenceFacts && FactType.Equals(RESIDENCE) && CensusReference.IsKnownStatus)
-                            FactType = CENSUS; // change fact type if option set and residence has a valid census reference
                     if (FactType == DEATH)
                     {
                         Comment = FamilyTree.GetText(node, "CAUS", true);
@@ -702,7 +666,6 @@ namespace FTAnalyzer
         public Age GedcomAge { get; private set; }
         public bool Created { get; protected set; }
         public bool Preferred { get; private set; }
-        public CensusReference CensusReference { get; private set; }
         public FactLocation Location { get; private set; }
         public string Place { get; private set; }
         public string Comment { get; set; }
@@ -718,45 +681,6 @@ namespace FTAnalyzer
         public bool IsMarriageFact =>  
             FactType == MARR_CONTRACT || FactType == MARR_LICENSE || 
             FactType == MARR_SETTLEMENT || FactType == MARRIAGE || FactType == MARRIAGE_BANN;
-
-        public bool IsCensusFact
-        {
-            get
-            {
-                if (FactType == CENSUS || FactType == CENSUS_FTA) return true;
-                if (FactType == RESIDENCE && GeneralSettings.Default.UseResidenceAsCensus)
-                    return CensusDate.IsCensusYear(FactDate, Country, GeneralSettings.Default.TolerateInaccurateCensusDate);
-                return false;
-            }
-        }
-
-        public bool IsLCCensusFact
-        {
-            get
-            {
-                if (!IsCensusFact)
-                    return false;
-                if (!CensusDate.IsLostCousinsCensusYear(FactDate, false))
-                    return false;
-                if (FactDate.CensusYearMatches(CensusDate.EWCENSUS1841) && Countries.IsEnglandWales(Country))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.EWCENSUS1881) && Countries.IsEnglandWales(Country))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.SCOTCENSUS1881) && Country.Equals(Countries.SCOTLAND))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.CANADACENSUS1881) && Country.Equals(Countries.CANADA))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.EWCENSUS1911) && Countries.IsEnglandWales(Country))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.IRELANDCENSUS1911) && Country.Equals(Countries.IRELAND))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.USCENSUS1880) && Country.Equals(Countries.UNITED_STATES))
-                    return true;
-                if (FactDate.CensusYearMatches(CensusDate.USCENSUS1940) && Country.Equals(Countries.UNITED_STATES))
-                    return true;
-                return false;
-            }
-        }
 
         public static bool IsAlwaysLoadFact(string factType)
         {
@@ -820,138 +744,6 @@ namespace FTAnalyzer
         {
             if (FactDate.IsUnknown && date != null && date.IsKnown)
                 FactDate = date;
-        }
-
-        public void SetCensusReferenceDetails(CensusReference cr, CensusLocation cl, string comment)
-        {
-            if (cr is null || cl is null) return;
-            comment = comment ?? string.Empty;
-            if ((cr.IsKnownStatus && !CensusReference.IsKnownStatus) || (cr.IsGoodStatus && !CensusReference.IsGoodStatus))
-                CensusReference = cr;
-            if (Location.IsBlank || !Location.IsKnown)
-                Location = cl.Equals(CensusLocation.UNKNOWN) ?
-                    FactLocation.GetLocation(cr.Country, GeneralSettings.Default.AddCreatedLocations) :
-                    FactLocation.GetLocation(cl.Location, GeneralSettings.Default.AddCreatedLocations);
-            if (Comment.Length == 0 && comment.Length > 0)
-                Comment = comment;
-            if (cr.Class == "RG78")
-                FactType = CENSUS_SUMMARY;
-        }
-
-        void CheckResidenceCensusDate()
-        {
-            if (FactDate.IsKnown && CensusDate.IsCensusYear(FactDate, Country, true) && !CensusDate.IsCensusYear(FactDate, Country, false))
-            {
-                // residence isn't a normal census year but it is a census year if tolerate is on
-                if (CensusDate.IsCensusCountry(FactDate, Location) || !Location.IsKnownCountry)
-                {
-                    //                    FactErrorNumber = (int) FamilyTree.Dataerror.RESIDENCE_CENSUS_DATE;
-                    FactErrorLevel = FactError.WARNINGALLOW;
-                    FactErrorMessage = $"Warning : Residence date {FactDate} is in a census year but doesn't overlap census date.";
-                    if (!GeneralSettings.Default.TolerateInaccurateCensusDate)
-                        FactErrorMessage += " This would be accepted as a census fact with Tolerate slightly inaccurate census dates option.";
-                }
-            }
-        }
-
-        void CheckCensusDate(string tag)
-        {
-            FactDate yearAdjusted = FactDate;
-            // check if census fails to overlaps a census date
-            if ((tag == "Census 1841" && !FactDate.Overlaps(CensusDate.UKCENSUS1841)) ||
-                (tag == "Census 1851" && !FactDate.Overlaps(CensusDate.UKCENSUS1851)) ||
-                (tag == "Census 1861" && !FactDate.Overlaps(CensusDate.UKCENSUS1861)) ||
-                (tag == "Census 1871" && !FactDate.Overlaps(CensusDate.UKCENSUS1871)) ||
-                (tag == "Census 1881" && !FactDate.Overlaps(CensusDate.UKCENSUS1881)) ||
-                (tag == "Census 1891" && !FactDate.Overlaps(CensusDate.UKCENSUS1891)) ||
-                (tag == "Census 1901" && !FactDate.Overlaps(CensusDate.UKCENSUS1901)) ||
-                (tag == "Census 1911" && !FactDate.Overlaps(CensusDate.UKCENSUS1911)) ||
-                (tag == "Census 1921" && !FactDate.Overlaps(CensusDate.UKCENSUS1921)) ||
-                (tag == "Census 1939" && !FactDate.Overlaps(CensusDate.UKCENSUS1939)) ||
-                (tag == "Census" && !CensusDate.IsUKCensusYear(FactDate, false)) ||
-                ((tag == "Lost Cousins" || tag == "LostCousins") && !CensusDate.IsLostCousinsCensusYear(FactDate, false))
-                && FactDate.DateString.Length >= 4)
-            {
-                // if not a census overlay then set date to year and try that instead
-                string year = FactDate.DateString.Substring(FactDate.DateString.Length - 4);
-                if (int.TryParse(year, out int result))
-                {
-                    yearAdjusted = new FactDate(year);
-                    if (GeneralSettings.Default.TolerateInaccurateCensusDate)
-                    {
-                        //                        FactErrorNumber = (int)FamilyTree.Dataerror.RESIDENCE_CENSUS_DATE;
-                        FactErrorMessage = $"Warning: Inaccurate Census date '{FactDate}' treated as '{yearAdjusted}'";
-                        FactErrorLevel = FactError.WARNINGALLOW;
-                    }
-                    else
-                    {
-                        //                        FactErrorNumber = (int)FamilyTree.Dataerror.RESIDENCE_CENSUS_DATE;
-                        FactErrorLevel = FactError.WARNINGIGNORE;
-                        FactErrorMessage = $"Inaccurate Census date '{FactDate}' fact ignored in strict mode. Check for incorrect date entered or try Tolerate slightly inaccurate census date option.";
-                    }
-                }
-            }
-            if ((tag == "Census 1841" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1841)) ||
-                (tag == "Census 1851" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1851)) ||
-                (tag == "Census 1861" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1861)) ||
-                (tag == "Census 1871" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1871)) ||
-                (tag == "Census 1881" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1881)) ||
-                (tag == "Census 1891" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1891)) ||
-                (tag == "Census 1901" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1901)) ||
-                (tag == "Census 1911" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1911)) ||
-                (tag == "Census 1939" && !yearAdjusted.Overlaps(CensusDate.UKCENSUS1939)))
-            {
-                FactErrorMessage = $"UK Census fact error date '{FactDate}' doesn't match '{tag}' tag. Check for incorrect date entered.";
-                FactErrorLevel = FactError.ERROR;
-                //                FactErrorNumber = (int)FamilyTree.Dataerror.CENSUS_COVERAGE;
-                return;
-            }
-            if (tag == "Census" || tag == "LostCousins" || tag == "Lost Cousins")
-            {
-                TimeSpan ts = FactDate.EndDate - FactDate.StartDate;
-                if (ts.Days > 3650)
-                {
-                    //                    FactErrorNumber = (int)FamilyTree.Dataerror.CENSUS_COVERAGE;
-                    FactErrorLevel = FactError.ERROR;
-                    FactErrorMessage = "Date covers more than one census.";
-                    return;
-                }
-            }
-            if (tag == "Census")
-            {
-                if (!CensusDate.IsCensusYear(yearAdjusted, Country, false))
-                {
-                    //                    FactErrorNumber = (int)FamilyTree.Dataerror.CENSUS_COVERAGE;
-                    FactErrorMessage = $"Census fact error date '{FactDate}' isn't a supported census date. Check for incorrect date entered or try Tolerate slightly inaccurate census date option.";
-                    FactErrorLevel = FactError.ERROR;
-                    return;
-                }
-                if (GeneralSettings.Default.TolerateInaccurateCensusDate && yearAdjusted.IsKnown && !CensusDate.IsCensusYear(yearAdjusted, Country, true))
-                {
-                    //                    FactErrorNumber = (int)FamilyTree.Dataerror.CENSUS_COVERAGE;
-                    FactErrorMessage = $"Warning : Census fact error date '{FactDate}' overlaps census date but is vague. Check for incorrect date entered.";
-                    FactErrorLevel = FactError.WARNINGALLOW;
-                }
-                if (!FactDate.Equals(yearAdjusted))
-                    FactDate = yearAdjusted;
-            }
-            if (tag == "Lost Cousins" || tag == "LostCousins")
-            {
-                if (GeneralSettings.Default.TolerateInaccurateCensusDate && yearAdjusted.IsKnown && !CensusDate.IsLostCousinsCensusYear(yearAdjusted, true))
-                {
-                    //                    FactErrorNumber = (int)FamilyTree.Dataerror.CENSUS_COVERAGE;
-                    FactErrorMessage = $"Lost Cousins fact error date '{FactDate}' overlaps Lost Cousins census year but is vague. Check for incorrect date entered.";
-                    FactErrorLevel = Fact.FactError.WARNINGALLOW;
-                }
-                if (!CensusDate.IsLostCousinsCensusYear(yearAdjusted, false))
-                {
-                    //                    FactErrorNumber = (int)FamilyTree.Dataerror.CENSUS_COVERAGE;
-                    FactErrorMessage = $"Lost Cousins fact error date '{FactDate}' isn't a supported Lost Cousins census year. Check for incorrect date entered or try Tolerate slightly inaccurate census date option.";
-                    FactErrorLevel = FactError.ERROR;
-                }
-                if (!FactDate.Equals(yearAdjusted))
-                    FactDate = yearAdjusted;
-            }
         }
 
         void SetCommentAndLocation(string factType, string factComment, string factPlace, string addrTagText, string latitude, string longitude)
@@ -1033,17 +825,6 @@ namespace FTAnalyzer
         public string PossiblyEqualHash => FactType + UnknownFactHash + FamilyFactHash +  FactDate + IsMarriageFact;
 
         public string EqualHash => FactType + UnknownFactHash + FamilyFactHash + FactDate + Location + Comment + IsMarriageFact;
-
-        public bool IsValidCensus(FactDate factDate) => FactDate.IsKnown && IsCensusFact && FactDate.FactYearMatches(factDate) && FactDate.IsNotBEForeOrAFTer && FactErrorLevel == FactError.GOOD;
-
-        public bool IsValidCensus(CensusDate censusDate) => FactDate.IsKnown && IsCensusFact && FactDate.CensusYearMatches(censusDate) && FactDate.IsNotBEForeOrAFTer && FactErrorLevel == FactError.GOOD;
-
-        public bool IsValidLostCousins(CensusDate censusDate) => 
-            FactDate.IsKnown && (FactType == LOSTCOUSINS || FactType == LC_FTA) &&
-            FactDate.CensusYearMatches(censusDate) && FactDate.IsNotBEForeOrAFTer && FactErrorLevel == FactError.GOOD;
-
-        public bool IsOverseasUKCensus(string country) =>
-            country.Equals(Countries.OVERSEAS_UK) || (!Countries.IsUnitedKingdom(country) && CensusReference != null && CensusReference.IsUKCensus);
 
         public override string ToString() => 
             FactTypeDescription + ": " + FactDate + (Location.ToString().Length > 0 ? " at " + Location : string.Empty) + (Comment.Length > 0 ? "  (" + Comment + ")" : string.Empty);

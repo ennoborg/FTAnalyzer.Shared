@@ -9,13 +9,6 @@
     <Import_RootNamespace>FTAnalyzer.Shared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\CensusAgeComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\CensusFamilyGedComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\CensusIndividualComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\CensusIndividualNameComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\CensusLocationComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\DefaultCensusComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\LostCousinsReferralComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Fact\FactComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Family\DefaultFamilyComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Family\FamilyDateComparer.cs" />
@@ -29,24 +22,17 @@
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Individual\NameComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Location\FactLocationComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\Age.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\CensusDate.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\CensusFamily.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\CensusIndividual.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\CensusLocation.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\CensusReference.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\ComboBoxFamily.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\CommonAncestor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\Countries.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\DataError.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\DataErrorGroup.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\LostCousin.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\ColourValues.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayCustomFact.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayDuplicateIndividual.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayFact.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayOccupation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayDataError.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayCensus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayChildrenStatus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayColourBMD.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayColourCensus.cs" />
@@ -120,7 +106,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Utilities\Analytics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utilities\SpecialMethods.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utilities\ColumnDetail.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Census\ColourCensusComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exceptions\InvalidGEDCOMException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IColumnComparer.cs" />
   </ItemGroup>

@@ -39,8 +39,6 @@ namespace FTAnalyzer
         public Age AgeAtFact => Ind?.GetAge(Fact.FactDate, Fact.FactType);
         public int SourcesCount => Fact.SourcesCount;
         public string SourceList => Fact.SourceList;
-        public CensusReference CensusReference => Fact.CensusReference;
-        public string CensusRefYear => Fact.CensusReference.CensusYear.IsKnown ? Fact.CensusReference.CensusYear.ToString() : string.Empty;
         public string FoundLocation => Fact.Location.FoundLocation;
         public string FoundResultType => Fact.Location.FoundResultType;
         public string GeocodeStatus => Fact.Location.Geocoded;
@@ -96,8 +94,6 @@ namespace FTAnalyzer
                 case "GeocodeStatus": return CompareComparableProperty<IDisplayFact>(f => f.GeocodeStatus, ascending);
                 case "FoundLocation": return CompareComparableProperty<IDisplayFact>(f => f.FoundLocation, ascending);
                 case "FoundResultType": return CompareComparableProperty<IDisplayFact>(f => f.FoundResultType, ascending);
-                case "CensusReference": return CompareComparableProperty<IDisplayFact>(f => f.CensusReference.ToString(), ascending);
-                case "CensusRefYear": return CompareComparableProperty<IDisplayFact>(f => f.CensusRefYear, ascending);
                 case "Comment": return CompareComparableProperty<IDisplayFact>(f => f.Comment, ascending);
                 case "SourceList": return CompareComparableProperty<IDisplayFact>(f => f.SourceList, ascending);
                 case "Latitude": return CompareComparableProperty<IDisplayFact>(f => f.Latitude, ascending);
