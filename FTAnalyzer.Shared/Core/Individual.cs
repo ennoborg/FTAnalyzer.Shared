@@ -46,7 +46,6 @@ namespace FTAnalyzer
         public string FamilySearchID { get; private set; }
         public decimal RelationSort { get; set; }
         public CommonAncestor CommonAncestor { get; set; }
-        public string UnrecognisedCensusNotes { get; private set; }
         public IList<Fact> Facts { get; private set; }
         public string Alias { get; set; }
         public IList<FactLocation> Locations { get; }
@@ -63,7 +62,6 @@ namespace FTAnalyzer
             surnameMetaphone = new DoubleMetaphone();
             MarriedName = string.Empty;
             StandardisedName = string.Empty;
-            UnrecognisedCensusNotes = string.Empty;
             FamilySearchID = string.Empty;
             IsFlaggedAsLiving = false;
             Alias = string.Empty;

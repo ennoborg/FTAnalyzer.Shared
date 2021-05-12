@@ -87,10 +87,6 @@ namespace FTAnalyzer
             SCOTLAND, ENGLAND, WALES, ENG_WALES, UNITED_KINGDOM, NORTHERN_IRELAND, ISLE_OF_MAN, CHANNEL_ISLANDS, OVERSEAS_UK
         });
 
-        static readonly ISet<string> CENSUS_COUNTRIES = new HashSet<string>(new string[] {
-            SCOTLAND, ENGLAND, WALES, ENG_WALES, UNITED_KINGDOM, UNITED_STATES, CANADA, ISLE_OF_MAN, IRELAND, CHANNEL_ISLANDS, OVERSEAS_UK
-        });
-
 #if __PC__
         static readonly Dictionary<string, Envelope> BOUNDING_BOXES;
         static readonly Envelope WHOLE_WORLD = new Envelope(-180, 180, -90, 90);
@@ -126,8 +122,6 @@ namespace FTAnalyzer
         public static bool IsUnitedKingdom(string country) => UK_COUNTRIES.Contains(country);
 
         public static bool IsKnownCountry(string country) => KNOWN_COUNTRIES.Contains(country);
-
-        public static bool IsCensusCountry(string country) => CENSUS_COUNTRIES.Contains(country);
 
         public static bool IsEnglandWales(string country) =>
             country == ENG_WALES || country == ENGLAND || country == WALES ||

@@ -35,7 +35,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayDataError.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayChildrenStatus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayColourBMD.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayColourCensus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayDuplicateIndividual.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayFact.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayFamily.cs" />
@@ -55,7 +54,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Core\DuplicateIndividual.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exceptions\TextFactDateException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exceptions\InvalidDoubleDateException.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Exceptions\CensusSearchException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exports\Convertors\JsonFactDateConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exports\DNA_GEDCOM.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exports\ExportFact.cs" />
@@ -80,7 +78,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Core\Region.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\Regions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\Relationship.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Core\ScottishParish.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\StandardisedName.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\Statistics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\SurnameStats.cs" />
@@ -114,9 +111,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="$(MSBuildThisFileDirectory)Resources\BingOSMaps.js">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="$(MSBuildThisFileDirectory)Resources\CensusLocations.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="$(MSBuildThisFileDirectory)Resources\FactLocationFixes.xml">

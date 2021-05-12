@@ -72,89 +72,6 @@ namespace FTAnalyzer
 
         public bool DocumentLoaded { get; set; }
 
-        public static string GetText(XmlNode node, bool lookForText)
-        {
-            if (node is null)
-                return string.Empty;
-            if (node.Name.Equals("PAGE") || node.Name.Equals("TITL") || node.Name.Equals("NOTE") || node.Name.Equals("SOUR"))
-                return node.InnerText.Trim();
-            XmlNode text = node.SelectSingleNode(".//TEXT");
-            if (text != null && lookForText && text.ChildNodes.Count > 0)
-                return GetContinuationText(text.ChildNodes);
-            if (node.FirstChild is null || node.FirstChild.Value is null)
-                return string.Empty;
-            if (node.FirstChild.NextSibling != null)
-                return GetSiblingText(node.FirstChild, node.ChildNodes);
-            return node.FirstChild.Value.Trim();
-        }
-
-        public static string GetText(XmlNode node, string tag, bool lookForText) => GetText(GetChildNode(node, tag), lookForText);
-
-        public static XmlNode GetChildNode(XmlNode node, string tag) => node?.SelectSingleNode(tag);
-
-        public static string GetNotes(XmlNode node)
-        {
-            if (node is null) return string.Empty;
-            XmlNodeList notes = node.SelectNodes("NOTE");
-            if (notes.Count == 0)
-                notes = node.SelectNodes("DATA/TEXT");
-            if (notes.Count == 0) return string.Empty;
-            var result = new StringBuilder();
-            try
-            {
-                foreach (XmlNode note in notes)
-                {
-                    if (note.ChildNodes.Count > 0)
-                    {
-                        result.AppendLine(GetContinuationText(note.ChildNodes));
-                        result.AppendLine();
-                    }
-                    XmlAttribute ID = note.Attributes["REF"];
-                    result.AppendLine(GetNoteRef(ID));
-                    result.AppendLine();
-                    result.AppendLine();
-                }
-            }
-            catch
-            { }
-            return result.ToString().Trim();
-        }
-
-        static string GetNoteRef(XmlAttribute reference)
-        {
-            if (!instance.DocumentLoaded)
-                Console.WriteLine("Looking up XML without document loaded");
-            var result = new StringBuilder();
-            return string.Empty;
-        }
-
-        static string GetContinuationText(XmlNodeList nodeList)
-        {
-            var result = new StringBuilder();
-            foreach (XmlNode child in nodeList)
-            {
-                if (child.Name.Equals("#text") || child.Name.Equals("CONT"))
-                    result.AppendLine(); // We have a new continuation so start a new line
-                if (!child.Name.Equals("SOUR"))
-                    result.Append(child.InnerText);
-            }
-            result.AppendLine();
-            return result.ToString().Trim();
-        }
-
-        static string GetSiblingText(XmlNode firstline, XmlNodeList nodeList)
-        {
-            var result = new StringBuilder();
-            result.Append(firstline.Value.Trim());
-            foreach (XmlNode child in nodeList)
-            {
-                if (child.Name.Equals("CONC"))
-                    result.Append(child.InnerText);
-            }
-            result.AppendLine();
-            return result.ToString().Trim();
-        }
-
         public static string ValidFilename(string filename)
         {
             filename = filename ?? string.Empty;
@@ -295,8 +212,6 @@ namespace FTAnalyzer
                 rootIndividualID = individuals[0].IndividualID;
             UpdateRootIndividual(rootIndividualID, progress, outputText); //, true);
             CreateSharedFacts();
-            CreateLostCousinsFacts(outputText);
-            CountCensusFacts(outputText);
             FixIDs();
             SetDataErrorTypes(progress);
             CountUnknownFactTypes(outputText);
@@ -305,19 +220,6 @@ namespace FTAnalyzer
             progress.Report(100);
             DataLoaded = true;
             Loading = false;
-        }
-
-        void CreateLostCousinsFacts(IProgress<string> outputText)
-        {
-            try
-            {
-                int count = DatabaseHelper.AddLostCousinsFacts();
-                outputText.Report($"Created {count} Lost Cousins facts from records previously uploaded by FTAnalyzer");
-            }
-            catch (Exception ex)
-            {
-                outputText.Report($"Error loading previously submitted Lost Cousins data. {ex.Message}");
-            }
         }
 
         public static bool LoadGeoLocationsFromDataBase(IProgress<string> outputText)
@@ -390,49 +292,6 @@ namespace FTAnalyzer
             return gOut is null ? name : gOut.Name;
         }
 
-        void ReportOptions(IProgress<string> outputText)
-        {
-            if (GeneralSettings.Default.ReportOptions)
-            {
-                outputText.Report($"\nThe current file handling options are set :");
-                outputText.Report($"\n    Retry failed lines by looking for bad line breaks: {FileHandling.Default.RetryFailedLines}");
-                outputText.Report($"\n    Convert Diacritics on load {FileHandling.Default.ConvertDiacritics}");
-
-                outputText.Report($"\nThe current general options are set:");
-                outputText.Report($"\n    Use Baptism/Christening Date If No Birth Date: {GeneralSettings.Default.UseBaptismDates}");
-                outputText.Report($"\n    Use Burial/Cremation Date If No Death Date: {GeneralSettings.Default.UseBurialDates}");
-                outputText.Report($"\n    Allow Empty Values In Locations: {GeneralSettings.Default.AllowEmptyLocations}");
-                outputText.Report($"\n    Show Multiple Fact Forms When Viewing Duplicates: {GeneralSettings.Default.MultipleFactForms}");
-                outputText.Report($"\n    Loose Birth Minimum Parental Age: {GeneralSettings.Default.MinParentalAge}");
-                outputText.Report($"\n    Show Alias In Name Displays: {GeneralSettings.Default.ShowAliasInName}");
-                outputText.Report($"\n    Files use Country First Locations: {GeneralSettings.Default.ReverseLocations}");
-                outputText.Report($"\n    Show World Events on the 'On This Day' tab: {GeneralSettings.Default.ShowWorldEvents}");
-                outputText.Report($"\n    Ignore Unknown/Custom Fact Type Warnings: {GeneralSettings.Default.IgnoreFactTypeWarnings}");
-                outputText.Report($"\n    Treat Female Surnames as Unknown: {GeneralSettings.Default.TreatFemaleSurnamesAsUnknown}");
-                outputText.Report($"\n    Show Ancestors that are muliple directs: {GeneralSettings.Default.ShowMultiAncestors}");
-                outputText.Report($"\n    Hide Ignored Duplicates: {GeneralSettings.Default.HideIgnoredDuplicates}");
-                outputText.Report($"\nThe current census options are set:");
-                outputText.Report($"\n    Treat Residence Facts As Census Facts: {GeneralSettings.Default.UseResidenceAsCensus}");
-                outputText.Report($"\n    Convert Residences with valid census reference to Census Facts: {GeneralSettings.Default.ConvertResidenceFacts}");
-                outputText.Report($"\n    Tolerate Slightly Inaccurate Census Dates: {GeneralSettings.Default.TolerateInaccurateCensusDate}");
-                outputText.Report($"\n    Family Census Facts Apply To Only Parents: {GeneralSettings.Default.OnlyCensusParents}");
-                outputText.Report($"\n    Use Compact Census References: {GeneralSettings.Default.UseCompactCensusRef}");
-                outputText.Report($"\n    Auto Create Census Events from Notes & Sources: {GeneralSettings.Default.AutoCreateCensusFacts}");
-                outputText.Report($"\n    Add Auto Created Census Locations to Locations List: {GeneralSettings.Default.AddCreatedLocations}");
-                outputText.Report($"\n    Hide People Tagged As Missing From Census: {GeneralSettings.Default.HidePeopleWithMissingTag}");
-                outputText.Report($"\n    Skip Checking for Census References: {GeneralSettings.Default.SkipCensusReferences}");
-
-#if __PC__
-                outputText.Report($"\nThe current mapping options are set:");
-                outputText.Report($"\n    Custom Maps Location: {MappingSettings.Default.CustomMapPath}");
-                outputText.Report($"\n    Display British Parish Boundaries: {MappingSettings.Default.UseParishBoundaries}");
-                outputText.Report($"\n    Hide Scale Bar: {MappingSettings.Default.HideScaleBar}");
-                outputText.Report($"\n    Include Locations with Partial Match Status: {MappingSettings.Default.IncludePartials}");
-#endif
-                outputText.Report("\n\n");
-            }
-        }
-
         void RemoveFamiliesWithNoIndividuals() => (families as List<Family>).RemoveAll(x => x.FamilySize == 0);
 
         void CountUnknownFactTypes(IProgress<string> outputText)
@@ -461,96 +320,6 @@ namespace FTAnalyzer
                     ind.AddFact(fact);
             }
         }
-
-        void CountCensusFacts(IProgress<string> outputText)
-        {
-            int censusFacts = 0;
-            int censusFTAFacts = 0;
-            int resiFacts = 0;
-            int lostCousinsFacts = 0;
-            int censusWarnAllow = 0;
-            int resiCensus = 0;
-            int resiWarnAllow = 0;
-            int lostCousinsWarnAllow = 0;
-            int censusWarnIgnore = 0;
-            int lostCousinsWarnIgnore = 0;
-            int censusErrors = 0;
-            int lostCousinsErrors = 0;
-            int censusReferences = 0;
-            int blankCensusRefs = 0;
-            int partialCensusRefs = 0;
-            int unrecognisedCensusRefs = 0;
-            foreach (Individual ind in individuals)
-            {
-                censusFacts += ind.FactCount(Fact.CENSUS);
-                censusFTAFacts += ind.FactCount(Fact.CENSUS_FTA);
-                censusWarnAllow += ind.ErrorFactCount(Fact.CENSUS, Fact.FactError.WARNINGALLOW);
-                censusWarnIgnore += ind.ErrorFactCount(Fact.CENSUS, Fact.FactError.WARNINGIGNORE);
-                censusErrors += ind.ErrorFactCount(Fact.CENSUS, Fact.FactError.ERROR);
-                resiFacts += ind.FactCount(Fact.RESIDENCE);
-                resiWarnAllow += ind.ErrorFactCount(Fact.RESIDENCE, Fact.FactError.WARNINGALLOW);
-                lostCousinsFacts += ind.FactCount(Fact.LOSTCOUSINS) + ind.FactCount(Fact.LC_FTA);
-                lostCousinsWarnAllow += ind.ErrorFactCount(Fact.LOSTCOUSINS, Fact.FactError.WARNINGALLOW) + ind.ErrorFactCount(Fact.LC_FTA, Fact.FactError.WARNINGALLOW);
-                lostCousinsWarnIgnore += ind.ErrorFactCount(Fact.LOSTCOUSINS, Fact.FactError.WARNINGIGNORE) + ind.ErrorFactCount(Fact.LC_FTA, Fact.FactError.WARNINGIGNORE);
-                lostCousinsErrors += ind.ErrorFactCount(Fact.LOSTCOUSINS, Fact.FactError.ERROR) + ind.ErrorFactCount(Fact.LC_FTA, Fact.FactError.ERROR);
-            }
-            int censusTotal = censusFacts + censusWarnAllow + censusWarnIgnore + censusErrors;
-            int resiTotal = resiFacts + resiWarnAllow;
-            int lostCousinsTotal = lostCousinsFacts + lostCousinsWarnAllow + lostCousinsWarnIgnore + lostCousinsErrors;
-
-            outputText.Report($"\nFound {censusTotal} census facts in GEDCOM File ({censusFacts} good, ");
-            if (censusWarnAllow > 0)
-                outputText.Report($"{censusWarnAllow} warnings (data tolerated), ");
-            if (censusWarnIgnore > 0)
-                outputText.Report($"{censusWarnIgnore} warnings (data ignored in strict mode), ");
-            if (censusErrors > 0)
-                outputText.Report($"{censusErrors} errors (data discarded), ");
-            outputText.Report($"{censusFacts + censusWarnAllow} usable facts loaded)");
-
-            outputText.Report($"\nCreated {censusFTAFacts} census facts from individuals notes and source references in GEDCOM File");
-            outputText.Report($"\nFound {resiTotal} residence facts in GEDCOM File ({resiCensus} treated as census facts) ");
-            if (resiWarnAllow > 0)
-            {
-                if (GeneralSettings.Default.TolerateInaccurateCensusDate)
-                    outputText.Report($"{resiWarnAllow} warnings (data tolerated), ");
-                else
-                    outputText.Report($"{resiWarnAllow} warnings (data ignored in strict mode), ");
-            }
-            if (GeneralSettings.Default.SkipCensusReferences)
-                outputText.Report("No census references loaded as option to Skip Census Reference checking is turned on");
-            else
-            {
-                outputText.Report($"\nFound {censusReferences} census references in file and {blankCensusRefs} facts missing a census reference");
-                if (partialCensusRefs > 0)
-                    outputText.Report($", with {partialCensusRefs} references with partial details");
-                if (unrecognisedCensusRefs > 0)
-                    outputText.Report($" and {unrecognisedCensusRefs} references that were unrecognised");
-            }
-            outputText.Report($"\nFound {lostCousinsTotal} Lost Cousins facts in GEDCOM File ({lostCousinsFacts} good, ");
-            if (lostCousinsWarnAllow > 0)
-                outputText.Report($"{lostCousinsWarnAllow} warnings (data tolerated), ");
-            if (lostCousinsWarnIgnore > 0)
-                outputText.Report($"{lostCousinsWarnIgnore} warnings (data ignored in strict mode), ");
-            if (lostCousinsErrors > 0)
-                outputText.Report($"{lostCousinsErrors} errors (data discarded), ");
-            outputText.Report($"{lostCousinsFacts + lostCousinsWarnAllow} usable facts loaded)");
-            if (censusFacts == 0 && resiCensus == 0 && censusWarnAllow == 0 && censusFTAFacts == 0)
-            {
-                outputText.Report("\nFound no census or suitable residence facts in GEDCOM File and no recognisable\n");
-                outputText.Report("census references in notes or in source records stored against an individual.\n\n");
-                outputText.Report("The most likely reason is that you have recorded census facts as notes and have\n");
-                outputText.Report("not recorded any census references. This will mean that the census report will\n");
-                outputText.Report("show everyone as not yet found on census and the Lost Cousins report will show\n");
-                outputText.Report("no-one with a census needing to be entered onto your Lost Cousins My Ancestors page.");
-            }
-            outputText.Report("\n");
-        }
-
-#if __PC__
-        readonly string separator = $"————————————————————————————————————————————————————\n";
-#elif __MACOS__
-        readonly string separator = $"————————————————————————————————\n";
-#endif
 
         void AddOccupations(Individual individual)
         {
@@ -2367,7 +2136,7 @@ namespace FTAnalyzer
             {
                 foreach (var group in groups)
                 {
-                    var task = Task.Run(() => IdentifyDuplicates(ignoreUnknown, group, ct), ct);
+                    var task = Task.Run(() => IdentifyDuplicates(group, ct), ct);
                     tasks.Add(task);
                 }
                 var progressTask = Task.Run(() => ProgressReporter(progress, progressText, ct), ct);
@@ -2407,7 +2176,7 @@ namespace FTAnalyzer
             return score;
         }
 
-        void IdentifyDuplicates(bool ignoreUnknown, IList<Individual> list, CancellationToken ct)
+        void IdentifyDuplicates(IList<Individual> list, CancellationToken ct)
         {
             for (var i = 0; i < list.Count; i++)
             {

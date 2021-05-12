@@ -979,16 +979,6 @@ namespace FTAnalyzer
 
         public static int GEDCOMGeocodedCount => AllLocations.Count(l => l.GEDCOMLatLong);
 
-        public string CensusCountry
-        {
-            get
-            {
-                return Countries.IsUnitedKingdom(Country)
-                    ? Countries.UNITED_KINGDOM
-                    : Countries.IsCensusCountry(Country) ? Country : Countries.UNKNOWN_COUNTRY;
-            }
-        }
-
         public string FreeCenCountyCode
         {
             get
@@ -1079,8 +1069,6 @@ namespace FTAnalyzer
             }
         }
 
-        public bool SupportedLocation(int level) => Countries.IsCensusCountry(Country) && level == COUNTRY;
-
         public bool IsGeoCoded(bool recheckPartials)
         {
             if (GeocodeStatus == Geocode.UNKNOWN)
@@ -1112,28 +1100,6 @@ namespace FTAnalyzer
                     return returnNumber ? name + " - " + number : name;
             }
             return addressField;
-        }
-
-        public bool CensusCountryMatches(string s, bool includeUnknownCountries)
-        {
-            if (Country.Equals(s))
-                return true;
-            if (includeUnknownCountries)
-            {
-                if (!Countries.IsKnownCountry(Country)) // if we have an unknown country then say it matches
-                    return true;
-            }
-            if (Country == Countries.UNITED_KINGDOM && Countries.IsUnitedKingdom(s))
-                return true;
-            if (s == Countries.UNITED_KINGDOM && Countries.IsUnitedKingdom(Country))
-                return true;
-            if (Country == Countries.SCOTLAND || s == Countries.SCOTLAND)
-                return false; // Either Country or s is not Scotland at this point, so not matching census country.
-            if (Countries.IsEnglandWales(Country) && Countries.IsEnglandWales(s))
-                return true;
-            if (Countries.IsUnitedKingdom(Country) && Countries.IsUnitedKingdom(s))
-                return true;
-            return false;
         }
 #endregion
 
@@ -1218,7 +1184,7 @@ namespace FTAnalyzer
 
         public override bool Equals(object obj)
         {
-            return obj is FactLocation && CompareTo((FactLocation)obj) == 0;
+            return obj is FactLocation location && CompareTo(location) == 0;
         }
 
         public static bool operator ==(FactLocation a, FactLocation b)

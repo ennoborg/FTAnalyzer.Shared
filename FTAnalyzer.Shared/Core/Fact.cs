@@ -1,11 +1,9 @@
-﻿using FTAnalyzer.Properties;
-using FTAnalyzer.Utilities;
+﻿using FTAnalyzer.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
 
 namespace FTAnalyzer
 {
@@ -14,7 +12,7 @@ namespace FTAnalyzer
         public const string ADOPTION = "ADOP", ADULT_CHRISTENING = "CHRA", AFN = "AFN", ALIAS = "ALIA", ANNULMENT = "ANUL",
                 BAPTISM = "BAPM", BAPTISM_LDS = "BAPL", BAR_MITZVAH = "BARM", BAS_MITZVAH = "BASM", BIRTH = "BIRT",
                 BIRTH_CALC = "_BIRTHCALC", BLESSING = "BLES", BURIAL = "BURI", CASTE = "CAST", CAUSE_OF_DEATH = "CAUS",
-                CENSUS = "CENS", CENSUS_FTA = "_CENSFTA", CHANGE = "CHAN", CHILDREN1911 = "CHILDREN1911", CHRISTENING = "CHR",
+                CHANGE = "CHAN", CHILDREN1911 = "CHILDREN1911", CHRISTENING = "CHR",
                 CIRCUMCISION = "_CIRC", CONFIRMATION = "CONF", CONFIRMATION_LDS = "CONL", CREMATION = "CREM",
                 CUSTOM_ATTRIBUTE = "_ATTR", CUSTOM_EVENT = "EVEN", CUSTOM_FACT = "FACT", DEATH = "DEAT", DEGREE = "_DEG", 
                 DESTINATION = "_DEST", DIVORCE = "DIV", DIVORCE_FILED = "DIVF", DNA = "_DNA", EDUCATION = "EDUC", ELECTION = "_ELEC",
@@ -28,7 +26,7 @@ namespace FTAnalyzer
                 PHONE = "PHON", PHYSICAL_DESC = "DSCR", PROBATE = "PROB", PROPERTY = "PROP", REFERENCE = "REFN",
                 RELIGION = "RELI", RESIDENCE = "RESI", RETIREMENT = "RETI", SEALED_TO_PARENTS = "SLGC",
                 SEALED_TO_SPOUSE = "SLGS", SEPARATION = "_SEPR", SERVICE_NUMBER = "_MILTID", SOCIAL_SECURITY = "SSN", TITLE = "TITL",
-                UNKNOWN = "UNKN", WEIGHT = "_WEIG", WILL = "WILL", HASHTAG = "_HASHTAG", OBITUARY = "OBIT", CENSUS_SUMMARY = "CEN_SUMM";
+                UNKNOWN = "UNKN", WEIGHT = "_WEIG", WILL = "WILL", HASHTAG = "_HASHTAG", OBITUARY = "OBIT";
 
         public const string ARRIVAL = "*ARRI", CHILDLESS = "*CHILD", CHILDREN = "*CHILDREN", CONTACT = "*CONT", DEPARTURE = "*DEPT",
                 FAMILYSEARCH = "*IGI", FAMILYSEARCH_ID = "FSID", LC_FTA = "*LOST_FTA", LOOSEBIRTH = "*LOOSEB", RACE = "RACE",
@@ -42,13 +40,13 @@ namespace FTAnalyzer
             EDUCATION, DEGREE, ADOPTION, BAR_MITZVAH, BAS_MITZVAH, ADULT_CHRISTENING, CONFIRMATION, 
             FIRST_COMMUNION, ORDINATION, NATURALIZATION, GRADUATION, RETIREMENT, LOSTCOUSINS, 
             LC_FTA, MARR_CONTRACT, MARR_LICENSE, MARR_SETTLEMENT, MARRIAGE, MARRIAGE_BANN, DEATH, 
-            CREMATION, BURIAL, CENSUS, BIRTH_CALC, CENSUS_SUMMARY
+            CREMATION, BURIAL, BIRTH_CALC
                     });
 
         public static ISet<string> LOOSE_DEATH_FACTS = new HashSet<string>(new string[] {
-            CENSUS, RESIDENCE, WITNESS, EMIGRATION, IMMIGRATION, ARRIVAL, DEPARTURE, EDUCATION,
+            RESIDENCE, WITNESS, EMIGRATION, IMMIGRATION, ARRIVAL, DEPARTURE, EDUCATION,
             DEGREE, ADOPTION, BAR_MITZVAH, BAS_MITZVAH, ADULT_CHRISTENING, CONFIRMATION, FIRST_COMMUNION,
-            ORDINATION, NATURALIZATION, GRADUATION, RETIREMENT, LOSTCOUSINS, LC_FTA, CENSUS_SUMMARY
+            ORDINATION, NATURALIZATION, GRADUATION, RETIREMENT, LOSTCOUSINS, LC_FTA
                     });
 
         public static ISet<string> RANGED_DATE_FACTS = new HashSet<string>(new string[] {
@@ -60,7 +58,7 @@ namespace FTAnalyzer
                     });
 
         public static ISet<string> CREATED_FACTS = new HashSet<string>(new string[] {
-            CENSUS_FTA, CHILDREN, PARENT, BIRTH_CALC, LC_FTA
+            CHILDREN, PARENT, BIRTH_CALC, LC_FTA
                     });
 
         public static readonly Dictionary<string, string> NON_STANDARD_FACTS = new Dictionary<string,string>();
@@ -103,80 +101,6 @@ namespace FTAnalyzer
             CUSTOM_TAGS.Add("_TAG9", HASHTAG);
 
             // convert custom tags to normal tags
-            CUSTOM_TAGS.Add("CENSUS 1841", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1851", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1861", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1871", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1881", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1891", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1901", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1911", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1939", CENSUS);
-            CUSTOM_TAGS.Add("1841 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1851 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1861 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1871 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1881 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1891 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1901 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1911 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1939 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("NAT REG 1939", CENSUS);
-            CUSTOM_TAGS.Add("REGISTER 1939", CENSUS);
-            CUSTOM_TAGS.Add("NAT REGISTER 1939", CENSUS);
-            CUSTOM_TAGS.Add("NATIONAL REGISTER 1939", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1841", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1851", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1861", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1871", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1881", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1891", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1901", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1911", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS UK 1939", CENSUS);
-            CUSTOM_TAGS.Add("UK 1841 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1851 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1861 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1871 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1881 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1891 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1901 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1911 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1921 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("UK 1939 CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1841 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1851 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1861 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1871 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1881 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1891 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1901 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1911 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1921 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1939 UK CENSUS", CENSUS);
-            CUSTOM_TAGS.Add("1939 UK REGISTER", CENSUS);
-            CUSTOM_TAGS.Add("REGISTER UK 1939", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1790", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1800", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1810", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1820", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1830", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1840", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1850", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1860", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1870", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1880", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1890", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1900", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1910", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1920", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1930", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1940", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS 1950", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS - US", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS - STATE", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS- US", CENSUS);
-            CUSTOM_TAGS.Add("CENSUS- STATE", CENSUS);
             CUSTOM_TAGS.Add("BAPTISED", BAPTISM);
             CUSTOM_TAGS.Add("BIRTH REG", BIRTH);
             CUSTOM_TAGS.Add("BIRTH", BIRTH);
@@ -213,7 +137,6 @@ namespace FTAnalyzer
             CUSTOM_TAGS.Add("PROBATE DATE", PROBATE);
             CUSTOM_TAGS.Add("RESIDENCE", RESIDENCE);
             CUSTOM_TAGS.Add("DIVORCED", DIVORCE);
-            CUSTOM_TAGS.Add("CENSUS", CENSUS);
             CUSTOM_TAGS.Add("OCCUPATION", OCCUPATION);
             CUSTOM_TAGS.Add("NATURALIZATION", NATURALIZATION);
             CUSTOM_TAGS.Add("NATURALISATION", NATURALIZATION);
@@ -230,7 +153,6 @@ namespace FTAnalyzer
             CUSTOM_TAGS.Add("CAUSE OF DEATH (FACTS PAGE)", CAUSE_OF_DEATH);
             CUSTOM_TAGS.Add("LTOG: LIVED TOGETHER (UNMARRIED)", UNMARRIED);
             CUSTOM_TAGS.Add("ILLNESS", MEDICAL_CONDITION);
-            CUSTOM_TAGS.Add("CENSUS SUMMARY", CENSUS_SUMMARY);
             
             // Legacy 8 default fact types
             CUSTOM_TAGS.Add("ALT. BIRTH", BIRTH);
@@ -306,9 +228,6 @@ namespace FTAnalyzer
                 case BURIAL: return "Burial";
                 case CASTE: return "Caste";
                 case CAUSE_OF_DEATH: return "Cause of Death";
-                case CENSUS: return "Census";
-                case CENSUS_FTA: return "Census (FTAnalyzer)";
-                case CENSUS_SUMMARY: return "Census Summary";
                 case CHANGE: return "Record change";
                 case CHILDLESS: return "Childless";
                 case CHILDREN1911: return "Children Status";
@@ -425,225 +344,10 @@ namespace FTAnalyzer
             SourcePages = new List<string>();
         }
 
-        public Fact(XmlNode node, Family family, bool preferred, IProgress<string> outputText)
-            : this(family.FamilyRef, preferred)
-        {
-            Individual = null;
-            Family = family;
-            CreateFact(node, family.FamilyRef, preferred, null, outputText);
-        }
-
-        public Fact(XmlNode node, Individual ind, bool preferred, FactDate deathdate, IProgress<string> outputText)
-            : this(ind.IndividualID, preferred)
-        {
-            Individual = ind;
-            Family = null;
-            CreateFact(node, ind.IndividualRef, preferred, deathdate, outputText);
-        }
-
-        void CreateFact(XmlNode node, string reference, bool preferred, FactDate deathdate, IProgress<string> outputText)
-        {
-            if (node != null)
-            {
-                FamilyTree ft = FamilyTree.Instance;
-                try
-                {
-                    FactType = FixFactTypes(node.Name);
-                    if (deathdate != null)
-                        FactDate = deathdate;
-                    else
-                    {
-                        string factDate = FamilyTree.GetText(node, "DATE", false);
-                        try
-                        {
-                            FactDate = new FactDate(factDate, reference);
-                        }
-                        catch (FactDateException e)
-                        {
-                            outputText.Report(e.Message);
-                        }
-                    }
-                    Preferred = preferred;
-                    if (FactType.Equals(CUSTOM_ATTRIBUTE) || FactType.Equals(CUSTOM_EVENT) || FactType.Equals(CUSTOM_FACT))
-                    {
-                        string tag = FamilyTree.GetText(node, "TYPE", false).ToUpper();
-                        FactType = UNKNOWN;
-                        FamilyTree.Instance.CheckUnknownFactTypes(tag);
-                        Tag = string.IsNullOrEmpty(tag) ? "** Custom Fact with no Fact Type ERROR **" : tag;
-                    }
-                    if(FactType.Equals(NAME))
-                    {
-                        string tag = FamilyTree.GetText(node, "TYPE", false).ToUpper();
-                        if (tag.Equals("AKA"))
-                            FactType = ALIAS;
-                    }
-                    var nodeText = FamilyTree.GetText(node, false);
-                    var placeText = FamilyTree.GetText(node, "PLAC", false);
-                    var xmlLat = FamilyTree.GetText(node, "PLAC/MAP/LATI", false);
-                    var xmlLong = FamilyTree.GetText(node, "PLAC/MAP/LONG", false);
-                    var addrTagText = GetAddress(FactType, node);
-                    SetCommentAndLocation(FactType, nodeText, placeText, addrTagText, xmlLat, xmlLong);
-                    if (!string.IsNullOrEmpty(xmlLat) && !string.IsNullOrEmpty(xmlLong))
-                        Location.GEDCOMLatLong = true;
-                    
-                    // check Children Status is valid
-                    if (FactType.Equals(CHILDREN1911))
-                        CheckValidChildrenStatus(node);
-
-                    // now iterate through source elements of the fact finding all sources
-                    XmlNodeList list = node.SelectNodes("SOUR");
-                    foreach (XmlNode n in list)
-                    {
-                        if (n.Attributes["REF"] != null)
-                        {   // only process sources with a reference
-                            string srcref = n.Attributes["REF"].Value;
-                            FactSource source = ft.GetSource(srcref);
-                            string pageText = FamilyTree.GetText(n, "PAGE", true); // Source page text
-                            if (source != null)
-                            {
-                                Sources.Add(source);
-                                source.AddFact(this);
-                                if(!SourcePages.Contains(pageText))
-                                    SourcePages.Add(pageText);
-                            }
-                            else
-                                outputText.Report($"Source {srcref} not found.\n");
-                        }
-                    }
-                    if (FactType == DEATH)
-                    {
-                        Comment = FamilyTree.GetText(node, "CAUS", true);
-                        if (node.FirstChild != null && node.FirstChild.Value == "Y" && FactDate.IsUnknown)
-                            FactDate = new FactDate(FactDate.MINDATE, FactDate.NOW); // if death flag set as Y then death before today.
-                    }
-                    string age = FamilyTree.GetText(node, "AGE", false);
-                    if (age.Length > 0)
-                        GedcomAge = new Age(age, FactDate);
-                    CertificatePresent = SetCertificatePresent();
-                    if (FactDate.SpecialDate)
-                    {
-                        //if (FactType == DEATH || FactType == MARRIAGE)
-                        //    throw;
-                        //string message = (node is null) ? string.Empty : node.InnerText + ". ";
-                        //throw new InvalidXMLFactException($"{message}\n            Error {te.Message} text in {FactTypeDescription} fact - a non death fact.\n");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    string message = (node is null) ? string.Empty : node.InnerText + ". ";
-                    throw new InvalidXMLFactException($"{message}\n            Error {ex.Message} in {FactTypeDescription} fact\n");
-                }
-            }
-        }
-
-        void CheckForSharedFacts(XmlNode node)
-        {
-            XmlNodeList list = node.SelectNodes("_SHAR");
-            foreach (XmlNode n in list)
-            {
-                string indref = n.Attributes["REF"]?.Value;
-                string role = FamilyTree.GetText(n, "ROLE", false);
-                if (indref != null && role == "Household Member")
-                    FamilyTree.Instance.AddSharedFact(indref, this);
-            }
-        }
-
         const string CHILDREN_STATUS_PATTERN1 = @"(\d{1,2}) Total ?,? ?(\d{1,2}) (Alive|Living) ?,? ?(\d{1,2}) Dead";
         const string CHILDREN_STATUS_PATTERN2 = @"Total:? (\d{1,2}) ?,? ?(Alive|Living):? (\d{1,2}) ?,? ?Dead:? (\d{1,2})";
         public readonly static Regex regexChildren1 = new Regex(CHILDREN_STATUS_PATTERN1, RegexOptions.Compiled);
         public readonly static Regex regexChildren2 = new Regex(CHILDREN_STATUS_PATTERN2, RegexOptions.Compiled);
-
-        void CheckValidChildrenStatus(XmlNode node)
-        {
-            if (Comment.Length == 0)
-                Comment = FamilyTree.GetNotes(node);
-            if (Comment.IndexOf("ignore", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                FactErrorLevel = FactError.IGNORE;
-                return;
-            }
-            bool success = false;
-            int total, alive, dead;
-            total = alive = dead = 0;
-            Match matcher = regexChildren1.Match(Comment);
-            if (matcher.Success)
-            {
-                success = true;
-                int.TryParse(matcher.Groups[1].ToString(), out total);
-                int.TryParse(matcher.Groups[2].ToString(), out alive);
-                int.TryParse(matcher.Groups[4].ToString(), out dead);
-            }
-            else
-            {
-                matcher = regexChildren2.Match(Comment);
-                if (matcher.Success)
-                {
-                    success = true;
-                    int.TryParse(matcher.Groups[1].ToString(), out total);
-                    int.TryParse(matcher.Groups[3].ToString(), out alive);
-                    int.TryParse(matcher.Groups[4].ToString(), out dead);
-                }
-            }
-            if (success)
-            {
-                if (total == alive + dead)
-                    return;
-                FactErrorMessage = "Children status total doesn't equal numbers alive plus numbers dead.";
-            }
-            else
-                FactErrorMessage = "Children status doesn't match valid pattern Total x, Alive y, Dead z";
-            FactErrorNumber = (int)FamilyTree.Dataerror.CHILDRENSTATUS_TOTAL_MISMATCH;
-            FactErrorLevel = FactError.ERROR;
-        }
-
-        string GetAddress(string factType, XmlNode node)
-        {
-            XmlNode addr = node.SelectSingleNode("ADDR");
-            if (addr is null)
-                return string.Empty;
-            if (COMMENT_FACTS.Contains(factType)) // don't parse address records if this is a comment fact
-                return string.Empty;
-            string result = string.Empty; // need to do something with an ADDR tag
-            XmlNode ctry = node.SelectSingleNode("ADDR/CTRY");
-            if (ctry != null)
-                result = (result.Length > 0) ? ctry.InnerText + ", " + result : ctry.InnerText;
-            XmlNode stae = node.SelectSingleNode("ADDR/STAE");
-            if (stae != null)
-                result = (result.Length > 0) ? stae.InnerText + ", " + result : stae.InnerText;
-            XmlNode city = node.SelectSingleNode("ADDR/CITY");
-            if (city != null)
-                result = (result.Length > 0) ? city.InnerText + ", " + result : city.InnerText;
-            XmlNode adr3 = node.SelectSingleNode("ADDR/ADR3");
-            if (adr3 != null)
-                result = (result.Length > 0) ? adr3.InnerText + ", " + result : adr3.InnerText;
-            XmlNode adr2 = node.SelectSingleNode("ADDR/ADR2");
-            if (adr2 != null)
-                result = (result.Length > 0) ? adr2.InnerText + ", " + result : adr2.InnerText;
-            XmlNode adr1 = node.SelectSingleNode("ADDR/ADR1");
-            if (adr1 != null)
-                result = (result.Length > 0) ? adr1.InnerText + ", " + result : adr1.InnerText;
-            string address = string.Empty;
-            if (addr.FirstChild != null && addr.FirstChild.Value != null)
-                address = addr.FirstChild.Value;
-            XmlNodeList list = node.SelectNodes("ADDR/CONT");
-            foreach (XmlNode cont in list)
-            {
-                if (cont.FirstChild != null && cont.FirstChild.Value != null)
-                    address += " " + cont.FirstChild.Value;
-            }
-            if (address.Length > 0)
-                result = (result.Length > 0) ? address + ", " + result : address;
-            //   ADDR <ADDRESS_LINE> {1:1} p.41
-            //+1 CONT <ADDRESS_LINE> {0:3} p.41
-            //+1 ADR1 <ADDRESS_LINE1> {0:1} p.41
-            //+1 ADR2 <ADDRESS_LINE2> {0:1} p.41
-            //+1 ADR3 <ADDRESS_LINE3> {0:1} p.41
-            //+1 CITY <ADDRESS_CITY> {0:1} p.41
-            //+1 STAE <ADDRESS_STATE> {0:1} p.42
-            //+1 POST <ADDRESS_POSTAL_CODE> {0:1} p.41
-            //+1 CTRY <ADDRESS_COUNTRY> 
-            return result;
-        }
 
         public Fact(string factRef, string factType, FactDate date, FactLocation loc, string comment = "", bool preferred = true, bool createdByFTA = false, Individual ind = null)
             : this(factRef, preferred)
@@ -684,8 +388,6 @@ namespace FTAnalyzer
 
         public static bool IsAlwaysLoadFact(string factType)
         {
-            if (factType == CENSUS || factType == CENSUS_FTA) return true;
-            if (factType == RESIDENCE && GeneralSettings.Default.UseResidenceAsCensus) return true;
             if (factType == LOSTCOUSINS || factType == LC_FTA || factType == CUSTOM_EVENT || factType == CUSTOM_FACT) return true;
             return false;
         }
@@ -732,90 +434,10 @@ namespace FTAnalyzer
             FactErrorMessage = message;
         }
 
-        string FixFactTypes(string tag)
-        {
-            string initialChars = tag.ToUpper().Substring(0, Math.Min(tag.Length, 4));
-            if (initialChars == "BIRT" || initialChars == "MARR" || initialChars == "DEAT")
-                return initialChars;
-            return tag;
-        }
-
         public void UpdateFactDate(FactDate date)
         {
             if (FactDate.IsUnknown && date != null && date.IsKnown)
                 FactDate = date;
-        }
-
-        void SetCommentAndLocation(string factType, string factComment, string factPlace, string addrTagText, string latitude, string longitude)
-        {
-            if (factComment.Length == 0 && factPlace.Length > 0)
-            {
-                if (factPlace.EndsWith("/", StringComparison.Ordinal))
-                {
-                    Comment = factPlace.Substring(0, factPlace.Length - 1);
-                    Place = string.Empty;
-                }
-                else
-                {
-                    int slash = factPlace.IndexOf("/", StringComparison.Ordinal);
-                    if (slash >= 0)
-                    {
-                        Comment = factPlace.Substring(0, slash).Trim();
-                        // If slash occurs at end of string, location is empty.
-                        Place = (slash == factPlace.Length - 1) ? string.Empty : factPlace.Substring(slash + 1).Trim();
-                    }
-                    else if (COMMENT_FACTS.Contains(factType))
-                    {
-                        // we have a comment rather than a location
-                        Comment = factPlace;
-                        Place = string.Empty;
-                    }
-                    else
-                    {
-                        Comment = string.Empty;
-                        Place = factPlace;
-                    }
-                }
-            }
-            else
-            {
-                Comment = factComment;
-                Place = factPlace;
-                if (factType == NAME)
-                    Comment = Comment.Replace("/", "");
-            }
-            Comment = EnhancedTextInfo.ToTitleCase(Comment).Trim();
-            if (string.IsNullOrEmpty(latitude))
-                latitude = "0.0";
-            if (string.IsNullOrEmpty(longitude))
-                longitude = "0.0";
-            FactLocation.Geocode geocode = 
-                (latitude.Equals("0.0") && longitude.Equals("0.0")) ? FactLocation.Geocode.NOT_SEARCHED : FactLocation.Geocode.GEDCOM_USER;
-            if (addrTagText.Length > 0)
-            {    //we have an address decide to add it to place or not
-                if (string.IsNullOrEmpty(Place) || addrTagText.Contains(Place))
-                    Place = addrTagText;
-                else if (GeneralSettings.Default.ReverseLocations)
-                    Place = $"{Place}, {addrTagText}";
-                else
-                    Place = $"{addrTagText}, {Place}";
-            }
-            if (GeneralSettings.Default.ReverseLocations)
-                Location = FactLocation.GetLocation(ReverseLocation(Place), latitude, longitude, geocode, true, true);
-            else
-                Location = FactLocation.GetLocation(Place, latitude, longitude, geocode, true, true);
-            Location.FTAnalyzerCreated = false;
-        }
-
-        bool SetCertificatePresent()
-        {
-            return Sources.Any(fs =>
-            {
-                return (FactType.Equals(BIRTH) && fs.IsBirthCert()) ||
-                    (FactType.Equals(DEATH) && fs.IsDeathCert()) ||
-                    (FactType.Equals(MARRIAGE) && fs.IsMarriageCert()) ||
-                    (FactType.Equals(CENSUS) && fs.IsCensusCert());
-            });
         }
 
         string UnknownFactHash => FactType == UNKNOWN ? Tag : string.Empty;
