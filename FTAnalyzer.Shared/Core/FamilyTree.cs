@@ -2116,7 +2116,7 @@ namespace FTAnalyzer
         long duplicatesFound;
         int currentPercentage;
 
-        public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList(int value, bool ignoreUnknown, IProgress<int> progress, IProgress<string> progressText, IProgress<int> maximum, CancellationToken ct)
+        public async Task<SortableBindingList<IDisplayDuplicateIndividual>> GenerateDuplicatesList(int value, IProgress<int> progress, IProgress<string> progressText, IProgress<int> maximum, CancellationToken ct)
         {
             if (duplicates != null)
             {
