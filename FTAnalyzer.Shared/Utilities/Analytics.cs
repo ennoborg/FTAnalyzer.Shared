@@ -23,9 +23,9 @@ namespace FTAnalyzer.Utilities
         static readonly SimpleTracker tracker;
         static readonly AnalyticsSession analyticsSession;
 
-        public const string MainFormAction = "Main Form Action", FactsFormAction = "Facts Form Action", CensusTabAction = "Census Tab Action",
-                            ReportsAction = "Reports Action", LostCousinsAction = "Lost Cousins Action", GeocodingAction = "Geocoding Action",
-                            ExportAction = "Export Action", MapsAction = "Maps Action", CensusSearchAction = "Census Search Action",
+        public const string MainFormAction = "Main Form Action", FactsFormAction = "Facts Form Action",
+                            ReportsAction = "Reports Action", GeocodingAction = "Geocoding Action",
+                            MapsAction = "Maps Action",
                             BMDSearchAction = "BMD Search Action", FTAStartupAction = "FTAnalyzer Startup", FTAShutdownAction = "FTAnalyzer Shutdown",
                             MainListsAction = "Main Lists Action", ErrorsFixesAction = "Error Fixes Action", GEDCOMAction = "GEDCOM Action";
 
@@ -38,24 +38,18 @@ namespace FTAnalyzer.Utilities
                             ShowPlacesEvent = "Show Places Viewed", ViewAllSurnameEvent = "View all with Surname Clicked", GOONSEvent = "Show Guild of One Name Studies",
                             PossibleCensusEvent = "Possible Census Facts Viewed", MainListsEvent = "Main Lists Tab Viewed", ErrorsFixesEvent = "Errors Fixes Tab Viewed",
                             FactsTabEvent = "Facts Tab Viewed", SurnamesTabEvent = "Surnames Tab Viewed", CensusTabEvent = "Census Tab Viewed",
-                            TreetopsTabEvent = "Treetops Tab Viewed", WorldWarsTabEvent = "World Wars Tab Viewed", TodayTabEvent = "Today Tab Viewed",
-                            LostCousinsTabEvent = "Lost Cousins Tab Viewed", LocationTabViewed = "Locations Tab Viewed", IndividualsTabEvent = "Individuals Tab Viewed",
+                            LocationTabViewed = "Locations Tab Viewed", IndividualsTabEvent = "Individuals Tab Viewed",
                             FamilyTabEvent = "Families Tab Viewed", SourcesTabEvent = "Sources Tab Viewed", OccupationsTabEvent = "Occupations Tab Viewed",
                             DuplicatesTabEvent = "Duplicates Tab Viewed", LooseBirthsEvent = "Loose Births Tab Viewed", LooseDeathsEvent = "Loose Deaths Tab Viewed",
-                            LCReportYearEvent = "LC Year Report Run", NoLCCountryEvent = "No LC Country Clicked", LCDuplicatesEvent = "LC Duplicates Clicked",
-                            NoLCCensusEvent = "No LC Census Clicked", LCWebLinkEvent = "LC Weblink Clicked", OptionsEvent = "Options Viewed", DBBackupEvent = "Database Backedup",
+                            OptionsEvent = "Options Viewed", DBBackupEvent = "Database Backedup",
                             DBRestoreEvent = "Database Restored", ShowCensusEvent = "Show on Census", MissingCensusEvent = "Show Missing from Census", 
-                            MissingCensusLocationEvent = "Missing Census Location Clicked", DuplicateCensusEvent = "Duplicate Census Clicked", DataErrorsTabEvent = "Data Errors Tab Viewed",
+                            DataErrorsTabEvent = "Data Errors Tab Viewed",
                             NoChildrenStatusEvent = "No Children Status Clicked", MisMatchedEvent = "Mismatched Children Clicked", UnrecognisedCensusEvent = "Unrecognised Census Ref",
                             ColourBMDEvent = "Colour BMD Report Clicked", ColourCensusEvent = "Colour Census Report Clicked", ExportIndEvent = "Individuals Exported",
                             ExportFamEvent = "Families Exported", ExportFactsEvent = "Facts Exported", ExportLooseBirthsEvent = "Loose Births Exported", 
                             ExportLooseDeathsEvent = "Loose Deaths Exported", ExportSourcesEvent = "Sources Exported", ExportDataErrorsEvent = "Data Errors Exported",
                             ExportTreeTopsEvent = "Treetops Exported", ExportWorldWarsEvent = "World Wars Exported", TodayClickedEvent = "Todays Events Clicked", 
-                            ShowSurnamesEvent = "Show Surnames Clicked", CousinCountEvent = "Cousins Count Viewed", DirectsReportEvent = "How Many Directs Viewed", 
-                            FacebookSupportEvent = "Visited Facebook Support", FacebookUsersEvent = "Visited Facebook Usergroup", CountriesTabEvent = "Countries Tab Viewed", 
-                            RegionsTabEvent = "Regions Tab Viewed", SubRegionsTabEvent = "SubRegions Tab Viewed", AddressesTabEvent = "Addresses Tab Viewed", 
-                            PlacesTabEvent = "Places Tab Viewed", ExportLocationsEvent ="Locations Exported", GoogleAPIKey = "Get Google API Key",
-                            ReadLostCousins = "Read Lost Cousins Records", UpdateLostCousins = "Update Records on Lost Cousins", PreviewLostCousins = "Preview records for update",
+                            CousinCountEvent = "Cousins Count Viewed", DirectsReportEvent = "How Many Directs Viewed", 
                             SoftwareProvider = "Software Provider", SoftwareVersion = "Software Version", LostCousinsStats = "Lost Cousins Statistics",
                             PossiblyMissingChildren = "Possibly Missing Children Viewed", AgedOver99Report = "Aged Over 99 Viewed", AliveAtDate = "Alive at Date",
                             CustomFactTabEvent = "Custom Fact Tab Viewed", ExportSurnamesEvent = "Surnames Exported";
