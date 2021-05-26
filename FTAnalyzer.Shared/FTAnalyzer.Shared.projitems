@@ -20,7 +20,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Individual\LooseBirthComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Individual\LooseDeathComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Comparators\Individual\NameComparer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Comparators\Location\FactLocationComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\Age.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\ComboBoxFamily.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Core\CommonAncestor.cs" />
@@ -38,10 +37,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayDuplicateIndividual.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayFact.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayFamily.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayGeocodedLocation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\DisplayGreatStats.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayIndividual.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayLocation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayLooseBirth.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayLooseInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Displays\IDisplayLooseDeath.cs" />
@@ -132,5 +129,8 @@
     <Content Include="$(MSBuildThisFileDirectory)Resources\Geocodes-Empty.s3db">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Comparators\Location\" />
   </ItemGroup>
 </Project>

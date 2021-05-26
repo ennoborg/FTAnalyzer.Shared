@@ -105,16 +105,6 @@ namespace FTAnalyzer.Utilities
             }
             return false;
         }
-        public static bool ContainsLocation(this List<IDisplayLocation> list, IDisplayLocation loc)
-        {
-            if (list != null)
-            {
-                for (int i = 0; i < list.Count; i++)
-                    if (list[i] == loc)
-                        return true;
-            }
-            return false;
-        }
         public static bool ContainsFact(this List<Fact> list, Fact fact)
         {
             if (list != null)

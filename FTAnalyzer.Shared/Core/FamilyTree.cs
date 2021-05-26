@@ -39,7 +39,6 @@ namespace FTAnalyzer
         IDictionary<string, List<Individual>> occupations;
         IDictionary<StandardisedName, StandardisedName> names;
         IDictionary<string, List<Individual>> unknownFactTypes;
-        SortableBindingList<IDisplayLocation>[] displayLocations;
         SortableBindingList<IDisplayLooseDeath> looseDeaths;
         SortableBindingList<IDisplayLooseBirth> looseBirths;
         SortableBindingList<IDisplayLooseInfo> looseInfo;
@@ -111,14 +110,12 @@ namespace FTAnalyzer
             names = new Dictionary<StandardisedName, StandardisedName>();
             unknownFactTypes = new Dictionary<string, List<Individual>>();
             DataErrorTypes = new List<DataErrorGroup>();
-            displayLocations = new SortableBindingList<IDisplayLocation>[5];
             rootIndividualID = string.Empty;
             SoloFamilies = 0;
             PreMarriageFamilies = 0;
             ResetLooseFacts();
             duplicates = null;
             buildDuplicates = null;
-            ClearLocations();
 #if __PC__
             TreeViewHandler.Instance.ResetData();
 #endif
@@ -215,29 +212,9 @@ namespace FTAnalyzer
             FixIDs();
             SetDataErrorTypes(progress);
             CountUnknownFactTypes(outputText);
-            FactLocation.LoadGoogleFixesXMLFile(outputText);
-            LoadGeoLocationsFromDataBase(outputText);
             progress.Report(100);
             DataLoaded = true;
             Loading = false;
-        }
-
-        public static bool LoadGeoLocationsFromDataBase(IProgress<string> outputText)
-        {
-            outputText.Report("");
-#if __PC__
-            try
-            {
-                DatabaseHelper.LoadGeoLocations();
-                WriteGeocodeStatstoRTB(string.Empty, outputText);
-            }
-            catch (Exception ex)
-            {
-                outputText.Report($"Error loading previously geocoded data. {ex.Message}");
-                return false;
-            }
-#endif
-            return true;
         }
 
         public void UpdateRootIndividual(string rootIndividualID, IProgress<int> progress, IProgress<string> outputText) //, bool locationsToFollow = false)
@@ -1074,51 +1051,6 @@ namespace FTAnalyzer
         #endregion
 
         #region Displays
-        public void ClearLocations()
-        {
-            for (int i = 0; i < 5; i++)
-                displayLocations[i] = null;
-        }
-
-        SortableBindingList<IDisplayLocation> GetDisplayLocations(int level)
-        {
-            List<IDisplayLocation> result = new List<IDisplayLocation>();
-            //copy to list so that any GetLocation(level) that creates a new location 
-            //won't cause an error due to collection changing
-            List<FactLocation> allLocations = FactLocation.AllLocations.ToList();
-            foreach (FactLocation loc in allLocations)
-            {
-                FactLocation c = loc.GetLocation(level);
-                if (!c.IsBlank && !result.ContainsLocation(c))
-                    result.Add(c);
-            }
-            result.Sort(new FactLocationComparer(level));
-            displayLocations[level] = new SortableBindingList<IDisplayLocation>(result);
-            return displayLocations[level];
-        }
-
-        public SortableBindingList<IDisplayLocation> AllDisplayCountries => displayLocations[FactLocation.COUNTRY] ?? GetDisplayLocations(FactLocation.COUNTRY);
-
-        public SortableBindingList<IDisplayLocation> AllDisplayRegions => displayLocations[FactLocation.REGION] ?? GetDisplayLocations(FactLocation.REGION);
-
-        public SortableBindingList<IDisplayLocation> AllDisplaySubRegions => displayLocations[FactLocation.SUBREGION] ?? GetDisplayLocations(FactLocation.SUBREGION);
-
-        public SortableBindingList<IDisplayLocation> AllDisplayAddresses => displayLocations[FactLocation.ADDRESS] ?? GetDisplayLocations(FactLocation.ADDRESS);
-
-        public SortableBindingList<IDisplayLocation> AllDisplayPlaces => displayLocations[FactLocation.PLACE] ?? GetDisplayLocations(FactLocation.PLACE);
-
-        public List<IDisplayGeocodedLocation> AllGeocodingLocations
-        {
-            get
-            {
-                List<IDisplayGeocodedLocation> result = new List<IDisplayGeocodedLocation>();
-                foreach (IDisplayGeocodedLocation loc in FactLocation.AllLocations)
-                    if ((loc as FactLocation).IsKnown)
-                        result.Add(loc);
-                return result;
-            }
-        }
-
         public SortableBindingList<IDisplayIndividual> AllDisplayIndividuals
         {
             get
@@ -1768,11 +1700,6 @@ namespace FTAnalyzer
                     endYear = startYear + 9;
                 query.Append($"%2Bbirth_year%3A{startYear}-{endYear}~%20");
             }
-            if (st.Equals(SearchType.BIRTH) && individual.BirthLocation.IsKnown)
-            {  // add birth place if searching for a birth
-                string location = individual.BirthLocation.GetLocation(FactLocation.SUBREGION).ToString();
-                query.Append($"%2Bbirth_place%3A%22{HttpUtility.UrlEncode(location)}%22~%20");
-            }
             string record_country = RecordCountry(st, individual, factdate);
             if (Countries.IsKnownCountry(record_country))
                 query.Append($"%2Brecord_country%3A{HttpUtility.UrlEncode(record_country)}");
@@ -1876,11 +1803,6 @@ namespace FTAnalyzer
             AppendYearandRange(individual.BirthDate, query, "msbdy=", "msbdp=", false);
             if (individual.BirthDate.IsKnown)
                 query.Append("&msbdy_x=1");
-            if (individual.BirthLocation.IsKnown)
-            {
-                string location = individual.BirthLocation.GetLocation(FactLocation.SUBREGION).ToString();
-                query.Append($"msbpn__ftp={HttpUtility.UrlEncode(location)}&");
-            }
             if (st.Equals(SearchType.DEATH) && factdate.IsKnown)
             {
                 AppendYearandRange(factdate, query, "msddy=", "msddp=", false);
