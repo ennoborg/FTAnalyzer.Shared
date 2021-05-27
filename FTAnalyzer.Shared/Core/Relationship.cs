@@ -120,7 +120,7 @@ namespace FTAnalyzer
             StringBuilder output = new StringBuilder();
             StringBuilder relations = new StringBuilder();
             output.Append(FamilyTree.Instance.RootPerson.Name);
-            if(ahnentafel !=1) output.Append("'s ");
+            if (ahnentafel != 1) output.Append("'s ");
             while (ahnentafel != 1)
             {
                 if (ahnentafel % 2 == 0)
@@ -135,7 +135,7 @@ namespace FTAnalyzer
             output.Append(string.Join(" ", relations.ToString().Split(' ').Reverse()));
             output.Replace("  ", " ");
             //remove last 's
-            return output.ToString().Substring(0,output.Length -2);
+            return output.ToString().Substring(0, output.Length - 2);
         }
     }
 }

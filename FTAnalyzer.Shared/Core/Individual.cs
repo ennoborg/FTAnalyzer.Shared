@@ -7,15 +7,13 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
-using System.Reflection;
 using System.Text;
-using System.Xml;
 using static FTAnalyzer.ColourValues;
 
 namespace FTAnalyzer
 {
     public class Individual : IComparable<Individual>,
-        IDisplayIndividual, IDisplayLooseDeath, IDisplayLooseBirth, 
+        IDisplayIndividual, IDisplayLooseDeath, IDisplayLooseBirth,
         IDisplayColourBMD, IDisplayMissingData, IDisplayLooseInfo,
         IJsonIndividual
     {
@@ -96,7 +94,7 @@ namespace FTAnalyzer
             surnameMetaphone = new DoubleMetaphone(Surname);
             Notes = _indi.Notes.ToString();
             StandardisedName = FamilyTree.Instance.GetStandardisedName(IsMale, Forename);
-            Fact nameFact = new Fact(IndividualID, Fact.INDI, FactDate.UNKNOWN_DATE, FactLocation.BLANK_LOCATION,Name, true, true, this);
+            Fact nameFact = new Fact(IndividualID, Fact.INDI, FactDate.UNKNOWN_DATE, FactLocation.BLANK_LOCATION, Name, true, true, this);
             AddFact(nameFact);
 
             var events = node.Events;
@@ -276,9 +274,9 @@ namespace FTAnalyzer
                     Surname = UNKNOWN_NAME;
                 if (GeneralSettings.Default.TreatFemaleSurnamesAsUnknown && !IsMale && Surname.StartsWith("(", StringComparison.Ordinal) && Surname.EndsWith(")", StringComparison.Ordinal))
                     Surname = UNKNOWN_NAME;
-                if(string.IsNullOrEmpty(_forenames) || _forenames.ToLower() == "unk" || _forenames == "[--?--]" ||
+                if (string.IsNullOrEmpty(_forenames) || _forenames.ToLower() == "unk" || _forenames == "[--?--]" ||
                   ((_forenames[0] == '.' || _forenames[0] == '?' || _forenames[0] == '_') && _forenames.Distinct().Count() == 1))
-                  _forenames = UNKNOWN_NAME;
+                    _forenames = UNKNOWN_NAME;
                 MarriedName = Surname;
                 _fullname = SetFullName();
                 SortedName = $"{_forenames} {Surname}".Trim();
@@ -474,7 +472,7 @@ namespace FTAnalyzer
                             amendedDeath = new DateTime(BirthDate.StartDate.Year, DeathDate.StartDate.Month, DeathDate.StartDate.Day); // set death date to be same year as birth
                         var diff = Math.Abs((amendedDeath - BirthDate.StartDate).Days);
                         Console.WriteLine($"Processed Individual: {IndividualID}: {Name}, Diff:{diff}, Birth: {BirthDate.StartDate.ToShortDateString()} Death: {DeathDate.StartDate.ToShortDateString()}");
-                        if(diff>180)
+                        if (diff > 180)
                         {
                             if (BirthDate.StartDate.Month < 7)
                                 amendedDeath = amendedDeath.AddYears(-1);
@@ -484,7 +482,7 @@ namespace FTAnalyzer
                         }
                         return diff < 16;
                     }
-                    catch(ArgumentOutOfRangeException)
+                    catch (ArgumentOutOfRangeException)
                     {
                         Console.WriteLine($"PROBLEM Individual: {IndividualID}: {Name}");
                         return false;
@@ -500,11 +498,12 @@ namespace FTAnalyzer
 
         public IList<ParentalRelationship> FamiliesAsChild { get; }
 
-        public string FamilyIDsAsParent {
+        public string FamilyIDsAsParent
+        {
             get
             {
                 string result = string.Empty;
-                foreach(Family f in FamiliesAsSpouse)
+                foreach (Family f in FamiliesAsSpouse)
                     result += f.FamilyID + ",";
                 return result.Length == 0 ? result : result.Substring(0, result.Length - 1);
             }
@@ -515,7 +514,7 @@ namespace FTAnalyzer
             get
             {
                 string result = string.Empty;
-                foreach(ParentalRelationship pr in FamiliesAsChild)
+                foreach (ParentalRelationship pr in FamiliesAsChild)
                     result += pr.Family.FamilyID + ",";
                 return result.Length == 0 ? result : result.Substring(0, result.Length - 1);
             }
@@ -615,7 +614,7 @@ namespace FTAnalyzer
         {
             if (when is null || when.IsUnknown) return true;
             if (BirthDate.StartDate <= when.EndDate && DeathDate.EndDate >= when.StartDate) return true;
-            if(DeathDate.IsUnknown)
+            if (DeathDate.IsUnknown)
             {
                 // if unknown death add 110 years to Enddate
                 var death = BirthDate.AddEndDateYears(110);
@@ -707,7 +706,7 @@ namespace FTAnalyzer
                 if (allowspace && c == ' ')
                     output.Append(c);
             }
-            var result = output.ToString().Replace("--","-").Replace("--", "-").Replace("--", "-");
+            var result = output.ToString().Replace("--", "-").Replace("--", "-").Replace("--", "-");
             return result == "-" ? UNKNOWN_NAME : result;
         }
 
@@ -722,7 +721,7 @@ namespace FTAnalyzer
                 if (endptr == -1) endptr = input.IndexOf('\"', startptr);
                 output = (startptr < input.Length ? input.Substring(0, startptr) : string.Empty) + (endptr < input.Length ? input.Substring(endptr) : string.Empty);
             }
-            output = output.Replace("--","").Replace('\'', ' ').Replace('\"', ' ').Replace("  ", " ").Replace("  ", " ");
+            output = output.Replace("--", "").Replace('\'', ' ').Replace('\"', ' ').Replace("  ", " ").Replace("  ", " ");
             return output.TrimEnd('-').Trim();
         }
 
@@ -744,7 +743,7 @@ namespace FTAnalyzer
             Fact f = GetPreferredFact(factType);
             return (f is null || f.FactDate is null) ? FactDate.UNKNOWN_DATE : f.FactDate;
         }
-        
+
         // Returns all facts of the given type.
         public IEnumerable<Fact> GetFacts(string factType) => Facts.Where(f => f.FactType == factType);
 
@@ -1008,7 +1007,8 @@ namespace FTAnalyzer
                     return null;
             }
             set
-            {   if (_indi != null)
+            {
+                if (_indi != null)
                     _indi.XRefID = value;
             }
         }
@@ -1067,7 +1067,7 @@ namespace FTAnalyzer
 
         IComparer<IDisplayIndividual> IColumnComparer<IDisplayIndividual>.GetComparer(string columnName, bool ascending)
         {
-            switch(columnName)
+            switch (columnName)
             {
                 case "IndividualID": return CompareComparableProperty<IDisplayIndividual>(i => i.IndividualID, ascending);
                 case "Forenames": return new NameComparer<IDisplayIndividual>(ascending, true);

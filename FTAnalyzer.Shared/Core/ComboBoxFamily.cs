@@ -13,7 +13,7 @@ namespace FTAnalyzer
             StringBuilder result = new StringBuilder();
             if (Husband != null)
                 result.Append(Husband.Name);
-            if(Wife != null)
+            if (Wife != null)
                 result.Append(Husband is null ? Wife.Name : " and " + Wife.Name);
             if (result.Length > 0)
                 return $"{FamilyID}: {result} {base.ToString()}";

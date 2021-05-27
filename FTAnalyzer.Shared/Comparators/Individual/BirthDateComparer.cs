@@ -15,8 +15,8 @@ namespace FTAnalyzer
 
         public override int Compare(IDisplayIndividual x, IDisplayIndividual y)
         {
-            IDisplayIndividual a = x, b=y;
-            if(Direction == DESCENDING)
+            IDisplayIndividual a = x, b = y;
+            if (Direction == DESCENDING)
             {
                 a = y;
                 b = x;

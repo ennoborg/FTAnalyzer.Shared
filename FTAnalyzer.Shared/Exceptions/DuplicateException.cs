@@ -13,7 +13,7 @@ namespace FTAnalyzer
         public DuplicateException(string message, Exception innerException) : base(message, innerException)
         {
         }
-       public DuplicateException()
+        public DuplicateException()
         {
         }
 

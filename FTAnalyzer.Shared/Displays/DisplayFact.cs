@@ -72,7 +72,7 @@ namespace FTAnalyzer
 
         public override int GetHashCode() => base.GetHashCode();
 
-        public override string ToString() => 
+        public override string ToString() =>
             Ind is null ? $"{Fact.FactTypeDescription}: {Fact.FactDate} {Fact.Comment}"
                         : $"{IndividualID}: {Forenames} {Surname}, {Fact}";
 

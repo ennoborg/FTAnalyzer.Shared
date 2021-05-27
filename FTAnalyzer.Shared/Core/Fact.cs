@@ -14,7 +14,7 @@ namespace FTAnalyzer
                 BIRTH_CALC = "_BIRTHCALC", BLESSING = "BLES", BURIAL = "BURI", CASTE = "CAST", CAUSE_OF_DEATH = "CAUS",
                 CHANGE = "CHAN", CHILDREN1911 = "CHILDREN1911", CHRISTENING = "CHR",
                 CIRCUMCISION = "_CIRC", CONFIRMATION = "CONF", CONFIRMATION_LDS = "CONL", CREMATION = "CREM",
-                CUSTOM_ATTRIBUTE = "_ATTR", CUSTOM_EVENT = "EVEN", CUSTOM_FACT = "FACT", DEATH = "DEAT", DEGREE = "_DEG", 
+                CUSTOM_ATTRIBUTE = "_ATTR", CUSTOM_EVENT = "EVEN", CUSTOM_FACT = "FACT", DEATH = "DEAT", DEGREE = "_DEG",
                 DESTINATION = "_DEST", DIVORCE = "DIV", DIVORCE_FILED = "DIVF", DNA = "_DNA", EDUCATION = "EDUC", ELECTION = "_ELEC",
                 EMAIL = "EMAIL", EMIGRATION = "EMIG", EMPLOYMENT = "_EMPLOY", ENDOWMENT_LDS = "ENDL", ENGAGEMENT = "ENGA",
                 EXCOMMUNICATION = "_EXCM", FIRST_COMMUNION = "FCOM", FUNERAL = "_FUN", GENDER = "SEX", GRADUATION = "GRAD",
@@ -36,10 +36,10 @@ namespace FTAnalyzer
         public const string ANCESTRY_DEATH_CAUSE = "_DCAUSE";
 
         public static ISet<string> LOOSE_BIRTH_FACTS = new HashSet<string>(new string[] {
-            CHRISTENING, BAPTISM, RESIDENCE, WITNESS, EMIGRATION, IMMIGRATION, ARRIVAL, DEPARTURE, 
-            EDUCATION, DEGREE, ADOPTION, BAR_MITZVAH, BAS_MITZVAH, ADULT_CHRISTENING, CONFIRMATION, 
-            FIRST_COMMUNION, ORDINATION, NATURALIZATION, GRADUATION, RETIREMENT, LOSTCOUSINS, 
-            LC_FTA, MARR_CONTRACT, MARR_LICENSE, MARR_SETTLEMENT, MARRIAGE, MARRIAGE_BANN, DEATH, 
+            CHRISTENING, BAPTISM, RESIDENCE, WITNESS, EMIGRATION, IMMIGRATION, ARRIVAL, DEPARTURE,
+            EDUCATION, DEGREE, ADOPTION, BAR_MITZVAH, BAS_MITZVAH, ADULT_CHRISTENING, CONFIRMATION,
+            FIRST_COMMUNION, ORDINATION, NATURALIZATION, GRADUATION, RETIREMENT, LOSTCOUSINS,
+            LC_FTA, MARR_CONTRACT, MARR_LICENSE, MARR_SETTLEMENT, MARRIAGE, MARRIAGE_BANN, DEATH,
             CREMATION, BURIAL, BIRTH_CALC
                     });
 
@@ -61,7 +61,7 @@ namespace FTAnalyzer
             CHILDREN, PARENT, BIRTH_CALC, LC_FTA
                     });
 
-        public static readonly Dictionary<string, string> NON_STANDARD_FACTS = new Dictionary<string,string>();
+        public static readonly Dictionary<string, string> NON_STANDARD_FACTS = new Dictionary<string, string>();
         static readonly Dictionary<string, string> CUSTOM_TAGS = new Dictionary<string, string>();
         static readonly HashSet<string> COMMENT_FACTS = new HashSet<string>();
 
@@ -153,7 +153,7 @@ namespace FTAnalyzer
             CUSTOM_TAGS.Add("CAUSE OF DEATH (FACTS PAGE)", CAUSE_OF_DEATH);
             CUSTOM_TAGS.Add("LTOG: LIVED TOGETHER (UNMARRIED)", UNMARRIED);
             CUSTOM_TAGS.Add("ILLNESS", MEDICAL_CONDITION);
-            
+
             // Legacy 8 default fact types
             CUSTOM_TAGS.Add("ALT. BIRTH", BIRTH);
             CUSTOM_TAGS.Add("ALT. CHRISTENING", CHRISTENING);
@@ -382,8 +382,8 @@ namespace FTAnalyzer
         public Family Family { get; private set; }
         public string FactTypeDescription => (FactType == UNKNOWN && Tag.Length > 0) ? Tag : GetFactTypeDescription(FactType);
 
-        public bool IsMarriageFact =>  
-            FactType == MARR_CONTRACT || FactType == MARR_LICENSE || 
+        public bool IsMarriageFact =>
+            FactType == MARR_CONTRACT || FactType == MARR_LICENSE ||
             FactType == MARR_SETTLEMENT || FactType == MARRIAGE || FactType == MARRIAGE_BANN;
 
         public static bool IsAlwaysLoadFact(string factType)
@@ -443,12 +443,12 @@ namespace FTAnalyzer
         string UnknownFactHash => FactType == UNKNOWN ? Tag : string.Empty;
 
         string FamilyFactHash => Family is null ? string.Empty : Family.FamilyID;
-        
-        public string PossiblyEqualHash => FactType + UnknownFactHash + FamilyFactHash +  FactDate + IsMarriageFact;
+
+        public string PossiblyEqualHash => FactType + UnknownFactHash + FamilyFactHash + FactDate + IsMarriageFact;
 
         public string EqualHash => FactType + UnknownFactHash + FamilyFactHash + FactDate + Location + Comment + IsMarriageFact;
 
-        public override string ToString() => 
+        public override string ToString() =>
             FactTypeDescription + ": " + FactDate + (Location.ToString().Length > 0 ? " at " + Location : string.Empty) + (Comment.Length > 0 ? "  (" + Comment + ")" : string.Empty);
     }
 }

@@ -15,7 +15,7 @@ namespace FTAnalyzer
 {
     public class FactLocation : IComparable<FactLocation>, IComparable
     {
-#region Variables
+        #region Variables
         // static log4net.ILog log = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         public const int UNKNOWN = -1, COUNTRY = 0, REGION = 1, SUBREGION = 2, ADDRESS = 3, PLACE = 4;
         public enum Geocode
@@ -56,8 +56,10 @@ namespace FTAnalyzer
         public string GEDCOMLoaded => FTAnalyzerCreated ? "No" : "Yes";
         public bool GEDCOMLatLong { get; set; }
         public bool FTAnalyzerCreated
-        { get => _created;
-            set {
+        {
+            get => _created;
+            set
+            {
                 _created = value;
                 if (!_created)
                     GEDCOMLocation = OriginalText;
@@ -82,9 +84,9 @@ namespace FTAnalyzer
         public static FactLocation UNKNOWN_LOCATION;
         public static FactLocation BLANK_LOCATION;
         public static FactLocation TEMP = new FactLocation();
-#endregion
+        #endregion
 
-#region Static Constructor
+        #region Static Constructor
         static FactLocation()
         {
             ResetLocations();
@@ -93,7 +95,7 @@ namespace FTAnalyzer
         public static void LoadConversions(string startPath)
         {
             // load conversions from XML file
-#region Fact Location Fixes
+            #region Fact Location Fixes
             if (startPath is null) return;
 #if __MACOS__
             string filename = Path.Combine(startPath, @"../Resources/FactLocationFixes.xml");
@@ -200,12 +202,12 @@ namespace FTAnalyzer
             {
                 Console.WriteLine("Failed to find FactLocationFixes.xml File");
             }
-#endregion
+            #endregion
         }
 
-#endregion
+        #endregion
 
-#region Object Constructors
+        #region Object Constructors
         FactLocation()
         {
             OriginalText = string.Empty;
@@ -336,10 +338,10 @@ namespace FTAnalyzer
             }
             _Parts = new string[] { Country, Region, SubRegion, Address, Place };
         }
-#endregion
+        #endregion
 
-#region Static Functions
-        bool GecodingMatches(FactLocation temp) 
+        #region Static Functions
+        bool GecodingMatches(FactLocation temp)
             => Latitude == temp.Latitude && Longitude == temp.Longitude && LatitudeM == temp.LatitudeM && LongitudeM == temp.LongitudeM;
 
         public bool IsValidLatLong => Latitude >= -90 && Latitude <= 90 && Longitude >= -180 && Longitude <= 180;
@@ -428,9 +430,9 @@ namespace FTAnalyzer
             to.FoundResultType = from.FoundResultType;
             to.FoundLevel = from.FoundLevel;
         }
-#endregion
+        #endregion
 
-#region Fix Location string routines
+        #region Fix Location string routines
         void TrimLocations()
         {
             // remove extraneous spaces
@@ -519,9 +521,9 @@ namespace FTAnalyzer
 
         void FixUKGBTypos()
         {
-            if(Country == "UK" || Country == "GB")
+            if (Country == "UK" || Country == "GB")
             {
-                if(Region == "Scotland" || Region == "England" || Region == "Wales")
+                if (Region == "Scotland" || Region == "England" || Region == "Wales")
                 {
                     Country = Region;
                     Region = SubRegion;
@@ -599,14 +601,14 @@ namespace FTAnalyzer
 
         void FixDoubleLocations()
         {
-            if(Country.Equals(Region))
+            if (Country.Equals(Region))
             {
                 Region = SubRegion;
                 SubRegion = Address;
                 Address = Place;
                 Place = string.Empty;
             }
-            if(Region.Equals(SubRegion))
+            if (Region.Equals(SubRegion))
             {
                 SubRegion = Address;
                 Address = Place;
@@ -742,8 +744,8 @@ namespace FTAnalyzer
             return toChange.Trim();
         }
 
-#endregion
-#region Properties
+        #endregion
+        #region Properties
 
         public string[] GetParts() => (string[])_Parts.Clone();
 
@@ -798,9 +800,9 @@ namespace FTAnalyzer
         public string FixedLocation { get; set; }
         public string Address1 { get; set; }
         public string Place1 { get; set; }
-#endregion
+        #endregion
 
-#region General Functions
+        #region General Functions
         public void AddIndividual(Individual ind)
         {
             if (ind != null && !individuals.ContainsKey(ind.IndividualID))
@@ -835,7 +837,7 @@ namespace FTAnalyzer
             }
             return addressField;
         }
-#endregion
+        #endregion
 
         public bool IsWithinUKBounds => Longitude >= -7.974074 && Longitude <= 1.879409 && Latitude >= 49.814376 && Latitude <= 60.970872;
 
@@ -860,7 +862,7 @@ namespace FTAnalyzer
         //    }
         //}
 
-#region Overrides
+        #region Overrides
 
         public int CompareTo(object that) => CompareTo(that as FactLocation);
 
@@ -914,6 +916,6 @@ namespace FTAnalyzer
 
         public override int GetHashCode() => base.GetHashCode();
 
-#endregion
+        #endregion
     }
 }

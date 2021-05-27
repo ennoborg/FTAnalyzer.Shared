@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 
 #if __PC__
 using FTAnalyzer.Properties;
-using System.Deployment.Application;
 using System.Windows.Forms;
 #elif __MACOS__
 using AppKit;
@@ -42,20 +41,20 @@ namespace FTAnalyzer.Utilities
                             FamilyTabEvent = "Families Tab Viewed", SourcesTabEvent = "Sources Tab Viewed", OccupationsTabEvent = "Occupations Tab Viewed",
                             DuplicatesTabEvent = "Duplicates Tab Viewed", LooseBirthsEvent = "Loose Births Tab Viewed", LooseDeathsEvent = "Loose Deaths Tab Viewed",
                             OptionsEvent = "Options Viewed", DBBackupEvent = "Database Backedup",
-                            DBRestoreEvent = "Database Restored", ShowCensusEvent = "Show on Census", MissingCensusEvent = "Show Missing from Census", 
+                            DBRestoreEvent = "Database Restored", ShowCensusEvent = "Show on Census", MissingCensusEvent = "Show Missing from Census",
                             DataErrorsTabEvent = "Data Errors Tab Viewed",
                             NoChildrenStatusEvent = "No Children Status Clicked", MisMatchedEvent = "Mismatched Children Clicked", UnrecognisedCensusEvent = "Unrecognised Census Ref",
                             ColourBMDEvent = "Colour BMD Report Clicked", ColourCensusEvent = "Colour Census Report Clicked", ExportIndEvent = "Individuals Exported",
-                            ExportFamEvent = "Families Exported", ExportFactsEvent = "Facts Exported", ExportLooseBirthsEvent = "Loose Births Exported", 
+                            ExportFamEvent = "Families Exported", ExportFactsEvent = "Facts Exported", ExportLooseBirthsEvent = "Loose Births Exported",
                             ExportLooseDeathsEvent = "Loose Deaths Exported", ExportSourcesEvent = "Sources Exported", ExportDataErrorsEvent = "Data Errors Exported",
-                            ExportTreeTopsEvent = "Treetops Exported", ExportWorldWarsEvent = "World Wars Exported", TodayClickedEvent = "Todays Events Clicked", 
-                            CousinCountEvent = "Cousins Count Viewed", DirectsReportEvent = "How Many Directs Viewed", 
+                            ExportTreeTopsEvent = "Treetops Exported", ExportWorldWarsEvent = "World Wars Exported", TodayClickedEvent = "Todays Events Clicked",
+                            CousinCountEvent = "Cousins Count Viewed", DirectsReportEvent = "How Many Directs Viewed",
                             SoftwareProvider = "Software Provider", SoftwareVersion = "Software Version", LostCousinsStats = "Lost Cousins Statistics",
                             PossiblyMissingChildren = "Possibly Missing Children Viewed", AgedOver99Report = "Aged Over 99 Viewed", AliveAtDate = "Alive at Date",
                             CustomFactTabEvent = "Custom Fact Tab Viewed", ExportSurnamesEvent = "Surnames Exported";
 
         public const string FactsIndividualsEvent = "Individual Facts Viewed", FactsFamiliesEvent = "Family Facts Viewed", LooseInfoEvent = "Loose Info Tab Viewed",
-                            FactsGroupIndividualsEvent = "Various Individuals Facts Viewed", FactsDuplicatesEvent = "Duplicate Facts Viewed", 
+                            FactsGroupIndividualsEvent = "Various Individuals Facts Viewed", FactsDuplicatesEvent = "Duplicate Facts Viewed",
                             FactsCensusRefEvent = "Census References Facts Viewed", FactsSourceEvent = "Facts for Source Viewed", FactsCensusRefIssueEvent = "Census Ref Issue Viewed",
                             BirthdayEffectEvent = "Birthday Effect Report Viewed";
 
@@ -133,7 +132,7 @@ namespace FTAnalyzer.Utilities
                 await tracker.TrackScreenviewAsync(FTAStartupAction).ConfigureAwait(false);
             }
             catch (Exception e)
-                { Console.WriteLine(e.Message); }
+            { Console.WriteLine(e.Message); }
         }
 
         public static Task TrackAction(string category, string action) => TrackActionAsync(category, action, "default");
@@ -145,7 +144,7 @@ namespace FTAnalyzer.Utilities
                 await tracker.TrackScreenviewAsync(category).ConfigureAwait(false);
             }
             catch (Exception e)
-                { Console.WriteLine(e.Message); }
+            { Console.WriteLine(e.Message); }
         }
 
 #if __PC__

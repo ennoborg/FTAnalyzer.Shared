@@ -3,18 +3,14 @@ using FTAnalyzer.Properties;
 using FTAnalyzer.Utilities;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using System.Xml;
 using System.Numerics;
 using System.Collections.Concurrent;
 using GeneGenie.Gedcom;
@@ -2146,7 +2142,7 @@ namespace FTAnalyzer
                         select.Add(dispDup);
                 }
                 numProcessed++;
-                if(numProcessed % 20 == 0)
+                if (numProcessed % 20 == 0)
                 {
                     var val = (int)(100 * numProcessed / numDuplicates);
                     if (val > currentPercentage)

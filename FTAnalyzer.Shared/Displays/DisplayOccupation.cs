@@ -8,7 +8,7 @@ namespace FTAnalyzer
         public string Occupation { get; }
         public int Count { get; }
 
-        public DisplayOccupation(string occupation,int count)
+        public DisplayOccupation(string occupation, int count)
         {
             Occupation = occupation;
             Count = count;
@@ -18,11 +18,11 @@ namespace FTAnalyzer
 
         public IComparer<IDisplayOccupation> GetComparer(string columnName, bool ascending)
         {
-            switch(columnName)
-            { 
+            switch (columnName)
+            {
                 case "Occupation": return CompareComparableProperty<IDisplayOccupation>(f => f.Occupation, ascending);
                 case "Count": return CompareComparableProperty<IDisplayOccupation>(f => f.Count, ascending);
-                 default: return null;
+                default: return null;
             }
         }
 

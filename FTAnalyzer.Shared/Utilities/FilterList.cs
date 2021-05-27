@@ -47,7 +47,7 @@ namespace FTAnalyzer.Utilities
         protected virtual void ApplyFilter(Predicate<T> filter)
         {
             var wantedItems = this.allItems.FindAll(filter);
-            
+
             Items.Clear();
             foreach (var item in wantedItems)
             {

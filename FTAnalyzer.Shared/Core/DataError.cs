@@ -18,9 +18,9 @@ namespace FTAnalyzer
             family = null;
             Description = description;
         }
-        
+
         public DataError(int errorType, Individual ind, string description)
-            : this(errorType, Fact.FactError.ERROR, ind, description) {}
+            : this(errorType, Fact.FactError.ERROR, ind, description) { }
 
         public DataError(int errorType, Family fam, string description)
             : this(errorType, Fact.FactError.ERROR, null, description)
@@ -42,7 +42,7 @@ namespace FTAnalyzer
         public string Description { get; private set; }
         public FactDate Born => individual is null ? FactDate.UNKNOWN_DATE : individual.BirthDate;
         public FactDate Died => individual is null ? FactDate.UNKNOWN_DATE : individual.DeathDate;
-        
+
 #if __PC__
         public bool IsFamily => individual is null;
 #elif __MACOS__ || __IOS__

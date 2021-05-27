@@ -1,5 +1,4 @@
-﻿using FTAnalyzer.Exports;
-using FTAnalyzer.Utilities;
+﻿using FTAnalyzer.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -162,7 +161,7 @@ namespace FTAnalyzer
             if (!Properties.NonGedcomDate.Default.UseNonGedcomDates || Properties.NonGedcomDate.Default.Separator != ".")
                 str = str.Replace(".", " ");
             if (str.StartsWith("<") && str.EndsWith(">"))
-                str = str.Replace("<", "").Replace(">", "");                   
+                str = str.Replace("<", "").Replace(">", "");
             // remove date qualifiers first
             str = str.Replace("@#DGREGORIAN@", "").Replace("@#DJULIAN@", ""); //.Replace("@#DFRENCH R@", ""); // .Replace("@#DHEBREW@", "");
             str = str.Replace(". ", " "); // even if Non GEDCOM date separator is a dot, dot space is invalid.
@@ -915,7 +914,7 @@ namespace FTAnalyzer
         }
 
         public bool StartsOnOrBefore(FactDate that)
-        { 
+        {
             if (!DoubleDate && that != null && that.DoubleDate)
                 return StartDate < that.StartDate || StartDate < that.StartDate.TryAddYears(-1);
             return that is null || StartDate <= that.StartDate;
