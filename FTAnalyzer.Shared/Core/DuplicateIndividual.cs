@@ -64,10 +64,6 @@
                 Score += 20;
             if (IndividualA.BirthLocation.PlaceMetaphone.Equals(IndividualB.BirthLocation.PlaceMetaphone))
                 Score += 20;
-
-            if (IndividualA.BirthLocation.IsKnownCountry && IndividualB.BirthLocation.IsKnownCountry &&
-                !IndividualA.BirthLocation.Country.Equals(IndividualB.BirthLocation.Country))
-                Score -= 250;
         }
 
         void GenderScore()

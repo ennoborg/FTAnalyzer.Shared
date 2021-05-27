@@ -25,7 +25,6 @@ namespace FTAnalyzer
         string ThirdMarriage { get; }
         FactLocation BirthLocation { get; }
         FactLocation DeathLocation { get; }
-        FactLocation BestLocation(FactDate when);
         BigInteger Ahnentafel { get; }
         float Score { get; }
     }

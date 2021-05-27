@@ -470,8 +470,6 @@ namespace FTAnalyzer
             }
         }
 
-        public FactLocation Location => FactLocation.BestLocation(AllFamilyFacts, FamilyDate);
-
         #endregion
 
         public bool IsAtLocation(FactLocation loc, int level) => AllFamilyFacts.Any(f => f.Location.Equals(loc, level));
@@ -572,7 +570,6 @@ namespace FTAnalyzer
                 case "WifeID": return CompareComparableProperty<IDisplayFamily>(f => f.WifeID, ascending);
                 case "Wife": return CompareComparableProperty<IDisplayFamily>(f => f.Wife, ascending);
                 case "Marriage": return CompareComparableProperty<IDisplayFamily>(f => f.Marriage, ascending);
-                case "Location": return CompareComparableProperty<IDisplayFamily>(f => f.Location, ascending);
                 case "Children": return CompareComparableProperty<IDisplayFamily>(f => f.Children, ascending);
                 case "FamilySize": return CompareComparableProperty<IDisplayFamily>(f => f.FamilySize, ascending);
                 default: return null;

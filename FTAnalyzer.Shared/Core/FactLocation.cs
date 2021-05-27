@@ -63,16 +63,8 @@ namespace FTAnalyzer
         readonly string[] _Parts;
         bool _created;
 
-        static Dictionary<string, string> COUNTRY_TYPOS = new Dictionary<string, string>();
-        static Dictionary<string, string> REGION_TYPOS = new Dictionary<string, string>();
-        static Dictionary<string, string> REGION_SHIFTS = new Dictionary<string, string>();
-        static Dictionary<string, string> FREECEN_LOOKUP = new Dictionary<string, string>();
-        static Dictionary<string, Tuple<string, string>> FINDMYPAST_LOOKUP = new Dictionary<string, Tuple<string, string>>();
         static IDictionary<string, FactLocation> LOCATIONS;
-        static Dictionary<Tuple<int, string>, string> GOOGLE_FIXES = new Dictionary<Tuple<int, string>, string>();
-        static Dictionary<Tuple<int, string>, string> LOCAL_GOOGLE_FIXES;
 
-        static Dictionary<string, string> COUNTRY_SHIFTS = new Dictionary<string, string>();
         static Dictionary<string, string> CITY_ADD_COUNTRY = new Dictionary<string, string>();
         public static FactLocation UNKNOWN_LOCATION;
         public static FactLocation BLANK_LOCATION;
@@ -84,120 +76,6 @@ namespace FTAnalyzer
         {
             ResetLocations();
         }
-
-        public static void LoadConversions(string startPath)
-        {
-            // load conversions from XML file
-            #region Fact Location Fixes
-            if (startPath is null) return;
-#if __MACOS__
-            string filename = Path.Combine(startPath, @"../Resources/FactLocationFixes.xml");
-#elif __IOS__
-            string filename = Path.Combine(startPath, @"Resources/FactLocationFixes.xml");
-#else
-            string filename = Path.Combine(startPath, @"Resources\FactLocationFixes.xml");
-#endif
-            Console.WriteLine($"Loading factlocation fixes from: {filename}");
-            if (File.Exists(filename) && !GeneralSettings.Default.SkipFixingLocations) // don't load file if skipping fixing locations
-            {
-                XmlDocument xmlDoc = new XmlDocument() { XmlResolver = null };
-                string xml = File.ReadAllText(filename);
-                StringReader sreader = new StringReader(xml);
-                using (XmlReader reader = XmlReader.Create(sreader, new XmlReaderSettings() { XmlResolver = null }))
-                    xmlDoc.Load(reader);
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Fixes/CountryTypos/CountryTypo"))
-                {
-                    string from = n.Attributes["from"].Value;
-                    string to = n.Attributes["to"].Value;
-                    if (COUNTRY_TYPOS.ContainsKey(from))
-                        Console.WriteLine(string.Format("Error duplicate country typos :{0}", from));
-                    if (!string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to))
-                        COUNTRY_TYPOS.Add(from, to);
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Fixes/RegionTypos/RegionTypo"))
-                {
-                    string from = n.Attributes["from"].Value;
-                    string to = n.Attributes["to"].Value;
-                    if (REGION_TYPOS.ContainsKey(from))
-                        Console.WriteLine(string.Format("Error duplicate region typos :{0}", from));
-                    if (!string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to))
-                        REGION_TYPOS.Add(from, to);
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Fixes/ChapmanCodes/ChapmanCode"))
-                {  // add Chapman code to Region Typos to convert locations with codes to region text strings
-                    string chapmanCode = n.Attributes["chapmanCode"].Value;
-                    string countyName = n.Attributes["countyName"].Value;
-                    if (REGION_TYPOS.ContainsKey(chapmanCode))
-                        Console.WriteLine(string.Format("Error duplicate region typos adding ChapmanCode :{0}", chapmanCode));
-                    if (!string.IsNullOrEmpty(chapmanCode) && !string.IsNullOrEmpty(countyName))
-                        REGION_TYPOS.Add(chapmanCode, countyName);
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Fixes/DemoteCountries/CountryToRegion"))
-                {
-                    string from = n.Attributes["region"].Value;
-                    string to = n.Attributes["country"].Value;
-                    if (!string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to))
-                    {
-                        if (COUNTRY_SHIFTS.ContainsKey(from))
-                            Console.WriteLine(string.Format("Error duplicate country shift :{0}", from));
-                        COUNTRY_SHIFTS.Add(from, to);
-                    }
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Fixes/DemoteCountries/CityAddCountry"))
-                {
-                    string from = n.Attributes["city"].Value;
-                    string to = n.Attributes["country"].Value;
-                    if (!string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to))
-                    {
-                        if (CITY_ADD_COUNTRY.ContainsKey(from))
-                            Console.WriteLine(string.Format("Error duplicate city add country :{0}", from));
-                        if (COUNTRY_SHIFTS.ContainsKey(from)) // also check country shifts for duplicates
-                            Console.WriteLine(string.Format("Error duplicate city in country shift :{0}", from));
-                        CITY_ADD_COUNTRY.Add(from, to);
-                    }
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Fixes/DemoteRegions/RegionToParish"))
-                {
-                    string from = n.Attributes["parish"].Value;
-                    string to = n.Attributes["region"].Value;
-                    if (REGION_SHIFTS.ContainsKey(from))
-                        Console.WriteLine(string.Format("Error duplicate region shift :{0}", from));
-                    if (!string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to))
-                    {
-                        REGION_SHIFTS.Add(from, to);
-                    }
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Lookups/FreeCen/Lookup"))
-                {
-                    string code = n.Attributes["code"].Value;
-                    string county = n.Attributes["county"].Value;
-                    if (FREECEN_LOOKUP.ContainsKey(county))
-                        Console.WriteLine(string.Format("Error duplicate freecen lookup :{0}", county));
-                    if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(county))
-                        FREECEN_LOOKUP.Add(county, code);
-                }
-                foreach (XmlNode n in xmlDoc.SelectNodes("Data/Lookups/FindMyPast/Lookup"))
-                {
-                    string code = n.Attributes["code"].Value;
-                    string county = n.Attributes["county"].Value;
-                    string country = n.Attributes["country"].Value;
-                    if (FINDMYPAST_LOOKUP.ContainsKey(county))
-                        Console.WriteLine(string.Format("Error duplicate FindMyPast lookup :{0}", county));
-                    if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(county))
-                    {
-                        Tuple<string, string> result = new Tuple<string, string>(country, code);
-                        FINDMYPAST_LOOKUP.Add(county, result);
-                    }
-                }
-                COUNTRY_SHIFTS = COUNTRY_SHIFTS.Concat(CITY_ADD_COUNTRY).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            }
-            else
-            {
-                Console.WriteLine("Failed to find FactLocationFixes.xml File");
-            }
-            #endregion
-        }
-
         #endregion
 
         #region Object Constructors
@@ -205,7 +83,6 @@ namespace FTAnalyzer
         {
             OriginalText = string.Empty;
             GEDCOMLocation = string.Empty;
-            FixedLocation = string.Empty;
             SortableLocation = string.Empty;
             Country = string.Empty;
             Region = string.Empty;
@@ -310,15 +187,8 @@ namespace FTAnalyzer
                     FixRegionFullStops();
                     FixCountryFullStops();
                     FixMultipleSpacesAmpersandsCommas();
-                    FixUKGBTypos();
-                    FixCountryTypos();
-                    Country = EnhancedTextInfo.ToTitleCase(FixRegionTypos(Country).ToLower());
-                    ShiftCountryToRegion();
-                    Region = FixRegionTypos(Region);
-                    ShiftRegionToParish();
                     FixDoubleLocations();
                 }
-                SetFixedLocation();
                 SetSortableLocation();
                 SetMetaphones();
                 KnownRegion = Regions.GetRegion(Region);
@@ -349,62 +219,13 @@ namespace FTAnalyzer
 
         public static void ResetLocations()
         {
-            COUNTRY_TYPOS = new Dictionary<string, string>();
-            REGION_TYPOS = new Dictionary<string, string>();
-            COUNTRY_SHIFTS = new Dictionary<string, string>();
-            REGION_SHIFTS = new Dictionary<string, string>();
             CITY_ADD_COUNTRY = new Dictionary<string, string>();
-            FREECEN_LOOKUP = new Dictionary<string, string>();
-            FINDMYPAST_LOOKUP = new Dictionary<string, Tuple<string, string>>();
             LOCATIONS = new Dictionary<string, FactLocation>();
-            GOOGLE_FIXES = new Dictionary<Tuple<int, string>, string>();
-            LOCAL_GOOGLE_FIXES = new Dictionary<Tuple<int, string>, string>();
 
             // set unknown location as unknown so it doesn't keep hassling to be searched
             BLANK_LOCATION = new FactLocation(string.Empty, "0.0", "0.0");
             UNKNOWN_LOCATION = new FactLocation("Unknown", "0.0", "0.0");
             LOCATIONS.Add("Unknown", UNKNOWN_LOCATION);
-            if (!GeneralSettings.Default.SkipFixingLocations)
-                LoadConversions(Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location));
-        }
-
-        public static FactLocation BestLocation(IEnumerable<Fact> facts, FactDate when)
-        {
-            Fact result = BestLocationFact(facts, when, int.MaxValue);
-            return result.Location;
-        }
-
-        public static Fact BestLocationFact(IEnumerable<Fact> facts, FactDate when, int limit)
-        {
-            // this returns a Fact for a FactLocation a person was at for a given period
-            Fact result = new Fact("Unknown", Fact.UNKNOWN, FactDate.UNKNOWN_DATE, UNKNOWN_LOCATION);
-            double minDistance = float.MaxValue;
-            double distance;
-            foreach (Fact f in facts)
-            {
-                if (f.FactDate.IsKnown && !string.IsNullOrEmpty(f.Location.OriginalText))
-                {  // only deal with known dates and non empty locations
-                    if (Fact.RANGED_DATE_FACTS.Contains(f.FactType) && f.FactDate.StartDate.Year != f.FactDate.EndDate.Year) // If fact type is ranged year use least end of range
-                    {
-                        distance = Math.Min(Math.Abs(f.FactDate.StartDate.Year - when.BestYear), Math.Abs(f.FactDate.EndDate.Year - when.BestYear));
-                        distance = Math.Min(distance, Math.Abs(f.FactDate.BestYear - when.BestYear)); // also check mid point to ensure fact is picked up at any point in range
-                    }
-                    else
-                        distance = Math.Abs(f.FactDate.BestYear - when.BestYear);
-                    if (distance < limit)
-                    {
-                        if (distance < minDistance)
-                        { // this is a closer date but now check to ensure we aren't overwriting a known country with an unknown one.
-                            if (f.Location.IsKnownCountry || (!f.Location.IsKnownCountry && !result.Location.IsKnownCountry))
-                            {
-                                result = f;
-                                minDistance = distance;
-                            }
-                        }
-                    }
-                }
-            }
-            return result;
         }
 
         public static void CopyLocationDetails(FactLocation from, FactLocation to)
@@ -507,86 +328,6 @@ namespace FTAnalyzer
             Place = Place.Replace("&", "and").Replace(",", "").Trim();
         }
 
-        void FixUKGBTypos()
-        {
-            if (Country == "UK" || Country == "GB")
-            {
-                if (Region == "Scotland" || Region == "England" || Region == "Wales")
-                {
-                    Country = Region;
-                    Region = SubRegion;
-                    SubRegion = Address;
-                    Address = Place;
-                    Place = string.Empty;
-                }
-            }
-        }
-
-        void FixCountryTypos()
-        {
-            COUNTRY_TYPOS.TryGetValue(Country, out string result);
-            if (!string.IsNullOrEmpty(result))
-                Country = result;
-            else
-            {
-                string fixCase = EnhancedTextInfo.ToTitleCase(Country.ToLower());
-                COUNTRY_TYPOS.TryGetValue(fixCase, out result);
-                if (!string.IsNullOrEmpty(result))
-                    Country = result;
-            }
-        }
-
-        string FixRegionTypos(string toFix)
-        {
-            if (Country == Countries.AUSTRALIA && toFix.Equals("WA"))
-                return "Western Australia"; // fix for WA = Washington
-            REGION_TYPOS.TryGetValue(toFix, out string result);
-            if (!string.IsNullOrEmpty(result))
-                return result;
-            string fixCase = EnhancedTextInfo.ToTitleCase(toFix.ToLower());
-            REGION_TYPOS.TryGetValue(fixCase, out result);
-            return !string.IsNullOrEmpty(result) ? result : toFix;
-        }
-
-        void ShiftCountryToRegion()
-        {
-            COUNTRY_SHIFTS.TryGetValue(Country, out string result);
-            if (string.IsNullOrEmpty(result))
-            {
-                string fixCase = EnhancedTextInfo.ToTitleCase(Country.ToLower());
-                COUNTRY_SHIFTS.TryGetValue(fixCase, out result);
-            }
-            if (!string.IsNullOrEmpty(result))
-            {
-                Place = (Place + " " + Address).Trim();
-                Address = SubRegion;
-                SubRegion = Region;
-                Region = Country;
-                Country = result;
-                if (Level < PLACE) Level++; // we have moved up a level
-            }
-        }
-
-        void ShiftRegionToParish()
-        {
-            if (!Countries.IsUnitedKingdom(Country))
-                return; // don't shift regions if not UK
-            REGION_SHIFTS.TryGetValue(Region, out string result);
-            if (string.IsNullOrEmpty(result))
-            {
-                string fixCase = EnhancedTextInfo.ToTitleCase(Region.ToLower());
-                REGION_TYPOS.TryGetValue(fixCase, out result);
-            }
-            if (!string.IsNullOrEmpty(result))
-            {
-                Place = (Place + " " + Address).Trim();
-                Address = SubRegion;
-                SubRegion = Region;
-                Region = result;
-                if (Level < PLACE) Level++; // we have moved up a level
-            }
-        }
-
         void FixDoubleLocations()
         {
             if (Country.Equals(Region))
@@ -602,20 +343,6 @@ namespace FTAnalyzer
                 Address = Place;
                 Place = string.Empty;
             }
-        }
-
-        void SetFixedLocation()
-        {
-            FixedLocation = Country;
-            if (Region.Length > 0 || GeneralSettings.Default.AllowEmptyLocations)
-                FixedLocation = Region + ", " + FixedLocation;
-            if (SubRegion.Length > 0 || GeneralSettings.Default.AllowEmptyLocations)
-                FixedLocation = SubRegion + ", " + FixedLocation;
-            if (Address.Length > 0 || GeneralSettings.Default.AllowEmptyLocations)
-                FixedLocation = Address + ", " + FixedLocation;
-            if (Place.Length > 0)
-                FixedLocation = Place + ", " + FixedLocation;
-            FixedLocation = TrimLeadingCommas(FixedLocation);
         }
 
         void SetSortableLocation()
@@ -668,63 +395,6 @@ namespace FTAnalyzer
             return sb.ToString();
         }
 
-        public string GoogleFixed
-        {
-            get
-            {
-                // first check the multifixes
-                string result = FixedLocation;
-                foreach (KeyValuePair<Tuple<int, string>, string> fix in LOCAL_GOOGLE_FIXES)
-                {
-                    if (fix.Key.Item1 == UNKNOWN)
-                        result = ReplaceString(result, fix.Key.Item2, fix.Value, StringComparison.OrdinalIgnoreCase);
-                }
-                if (result != FixedLocation)
-                    return result;
-
-                foreach (KeyValuePair<Tuple<int, string>, string> fix in GOOGLE_FIXES)
-                {
-                    if (fix.Key.Item1 == UNKNOWN)
-                        result = ReplaceString(result, fix.Key.Item2, fix.Value, StringComparison.OrdinalIgnoreCase);
-                }
-                if (result != FixedLocation)
-                    return result;
-
-                // now check the individual part fixes
-                LOCAL_GOOGLE_FIXES.TryGetValue(new Tuple<int, string>(COUNTRY, Country.ToUpperInvariant()), out string countryFix);
-                if (countryFix is null)
-                {
-                    GOOGLE_FIXES.TryGetValue(new Tuple<int, string>(COUNTRY, Country.ToUpperInvariant()), out countryFix);
-                    if (countryFix is null)
-                        countryFix = Country;
-                }
-                LOCAL_GOOGLE_FIXES.TryGetValue(new Tuple<int, string>(REGION, Region.ToUpperInvariant()), out string regionFix);
-                if (regionFix is null)
-                {
-                    GOOGLE_FIXES.TryGetValue(new Tuple<int, string>(REGION, Region.ToUpperInvariant()), out regionFix);
-                    if (regionFix is null)
-                        regionFix = Region;
-                }
-                LOCAL_GOOGLE_FIXES.TryGetValue(new Tuple<int, string>(SUBREGION, SubRegion.ToUpperInvariant()), out string subRegionFix);
-                if (subRegionFix is null)
-                {
-                    GOOGLE_FIXES.TryGetValue(new Tuple<int, string>(SUBREGION, SubRegion.ToUpperInvariant()), out subRegionFix);
-                    if (subRegionFix is null)
-                        subRegionFix = SubRegion;
-                }
-                result = countryFix;
-                if (!string.IsNullOrEmpty(regionFix) || GeneralSettings.Default.AllowEmptyLocations)
-                    result = regionFix + ", " + result;
-                if (!string.IsNullOrEmpty(subRegionFix) || GeneralSettings.Default.AllowEmptyLocations)
-                    result = subRegionFix + ", " + result;
-                if (!string.IsNullOrEmpty(Address) || GeneralSettings.Default.AllowEmptyLocations)
-                    result = Address + ", " + result;
-                if (!string.IsNullOrEmpty(Place))
-                    result = Place + ", " + result;
-                return TrimLeadingCommas(result);
-            }
-        }
-
         string TrimLeadingCommas(string toChange)
         {
             while (toChange.StartsWith(", ", StringComparison.Ordinal))
@@ -741,40 +411,13 @@ namespace FTAnalyzer
 
         public string PlaceNumeric => FixNumerics(Place, true);
 
-        public bool IsKnownCountry => Countries.IsKnownCountry(Country);
-
-        public bool IsUnitedKingdom => Countries.IsUnitedKingdom(Country);
-
-        public bool IsEnglandWales => Countries.IsEnglandWales(Country);
-
         public static int LocationsCount => AllLocations.Count() - 1;
 
         public static int GEDCOMLocationsCount => AllLocations.Count(l => !l.FTAnalyzerCreated);
 
-        public string FreeCenCountyCode
-        {
-            get
-            {
-                FREECEN_LOOKUP.TryGetValue(Region, out string result);
-                if (result is null)
-                    result = "all";
-                return result;
-            }
-        }
-
-        public Tuple<string, string> FindMyPastCountyCode
-        {
-            get
-            {
-                FINDMYPAST_LOOKUP.TryGetValue(Region, out Tuple<string, string> result);
-                return result;
-            }
-        }
-
         public bool IsBlank => Country.Length == 0;
         public bool IsKnown => this != BLANK_LOCATION && this != UNKNOWN_LOCATION;
 
-        public string FixedLocation { get; set; }
         public string Address1 { get; set; }
         public string Place1 { get; set; }
         #endregion
@@ -816,29 +459,6 @@ namespace FTAnalyzer
         }
         #endregion
 
-        public bool IsWithinUKBounds => Longitude >= -7.974074 && Longitude <= 1.879409 && Latitude >= 49.814376 && Latitude <= 60.970872;
-
-        //public string OSGridMapReference
-        //{
-        //    get
-        //    {
-        //        if (IsWithinUKBounds)
-        //        {
-        //            //var latLong = new LatitudeLongitude(Latitude, Longitude);
-
-        //            //var cartesian = GeoUK.Convert.ToCartesian(new Wgs84(), latLong);
-        //            //var bngCartesian = Transform.Etrs89ToOsgb36(cartesian);
-        //            //var bngEN = GeoUK.Convert.ToEastingNorthing(new Airy1830(), new BritishNationalGrid(), bngCartesian);
-
-        //            //// Convert to Osgb36 coordinates by creating a new object passing  
-        //            //// in the EastingNorthing object to the constructor.
-        //            //var osgb36EN = new Osgb36(bngEN);
-        //            //return osgb36EN.MapReference;
-        //        }
-        //        return string.Empty;
-        //    }
-        //}
-
         #region Overrides
 
         public int CompareTo(object that) => CompareTo(that as FactLocation);
@@ -866,8 +486,6 @@ namespace FTAnalyzer
             }
             return res;
         }
-
-        public override string ToString() => GeneralSettings.Default.SkipFixingLocations ? OriginalText : FixedLocation; //return location;
 
         public override bool Equals(object obj)
         {

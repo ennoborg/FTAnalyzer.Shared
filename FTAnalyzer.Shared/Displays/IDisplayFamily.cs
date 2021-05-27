@@ -16,8 +16,6 @@ namespace FTAnalyzer
         string Wife { get; }
         [ColumnDetail("Marriage Detail", 300)]
         string Marriage { get; }
-        [ColumnDetail("Location", 250)]
-        FactLocation Location { get; }
         [ColumnDetail("Childrens Details", 350)]
         string Children { get; }
         [ColumnDetail("Family Size", 80, ColumnDetail.ColumnAlignment.Right)]

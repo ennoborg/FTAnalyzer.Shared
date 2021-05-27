@@ -785,10 +785,6 @@ namespace FTAnalyzer
 
         #region Location functions
 
-        public FactLocation BestLocation(FactDate when) => FactLocation.BestLocation(AllFacts, when);  // this returns a Location a person was at for a given period
-
-        public Fact BestLocationFact(FactDate when, int limit) => FactLocation.BestLocationFact(AllFacts, when, limit); // this returns a Fact a person was at for a given period
-
         public bool IsAtLocation(FactLocation loc, int level)
         {
             foreach (Fact f in AllFacts)
