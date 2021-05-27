@@ -18,11 +18,6 @@ namespace FTAnalyzer
         #region Variables
         // static log4net.ILog log = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         public const int UNKNOWN = -1, COUNTRY = 0, REGION = 1, SUBREGION = 2, ADDRESS = 3, PLACE = 4;
-        public enum Geocode
-        {
-            UNKNOWN = -1, NOT_SEARCHED = 0, MATCHED = 1, PARTIAL_MATCH = 2, GEDCOM_USER = 3, NO_MATCH = 4,
-            INCORRECT = 5, OUT_OF_BOUNDS = 6, LEVEL_MISMATCH = 7, OS_50KMATCH = 8, OS_50KPARTIAL = 9, OS_50KFUZZY = 10
-        };
 
         public string OriginalText { get; private set; }
         public string GEDCOMLocation { get; private set; }
@@ -48,7 +43,6 @@ namespace FTAnalyzer
         public double Longitude { get; set; }
         public double LatitudeM { get; set; }
         public double LongitudeM { get; set; }
-        public Geocode GeocodeStatus { get; set; }
         public string FoundLocation { get; set; }
         public string FoundResultType { get; set; }
         public int FoundLevel { get; set; }
@@ -80,7 +74,6 @@ namespace FTAnalyzer
 
         static Dictionary<string, string> COUNTRY_SHIFTS = new Dictionary<string, string>();
         static Dictionary<string, string> CITY_ADD_COUNTRY = new Dictionary<string, string>();
-        public static Dictionary<Geocode, string> Geocodes;
         public static FactLocation UNKNOWN_LOCATION;
         public static FactLocation BLANK_LOCATION;
         public static FactLocation TEMP = new FactLocation();
@@ -227,7 +220,6 @@ namespace FTAnalyzer
             LatitudeM = 0;
             LongitudeM = 0;
             Level = UNKNOWN;
-            GeocodeStatus = Geocode.NOT_SEARCHED;
             GEDCOMLatLong = false;
             FoundLocation = string.Empty;
             FoundResultType = string.Empty;
@@ -236,14 +228,11 @@ namespace FTAnalyzer
             _Parts = new string[] { Country, Region, SubRegion, Address, Place };
         }
 
-        FactLocation(string location, string latitude, string longitude, Geocode status)
+        FactLocation(string location, string latitude, string longitude)
             : this(location)
         {
             Latitude = double.TryParse(latitude, out double temp) ? temp : 0;
             Longitude = double.TryParse(longitude, out temp) ? temp : 0;
-            GeocodeStatus = status;
-            if (status == Geocode.NOT_SEARCHED && (Latitude != 0 || Longitude != 0))
-                status = Geocode.GEDCOM_USER;
         }
 
         public FactLocation(string location)
@@ -372,8 +361,8 @@ namespace FTAnalyzer
             LOCAL_GOOGLE_FIXES = new Dictionary<Tuple<int, string>, string>();
 
             // set unknown location as unknown so it doesn't keep hassling to be searched
-            BLANK_LOCATION = new FactLocation(string.Empty, "0.0", "0.0", Geocode.UNKNOWN);
-            UNKNOWN_LOCATION = new FactLocation("Unknown", "0.0", "0.0", Geocode.GEDCOM_USER);
+            BLANK_LOCATION = new FactLocation(string.Empty, "0.0", "0.0");
+            UNKNOWN_LOCATION = new FactLocation("Unknown", "0.0", "0.0");
             LOCATIONS.Add("Unknown", UNKNOWN_LOCATION);
             if (!GeneralSettings.Default.SkipFixingLocations)
                 LoadConversions(Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location));
@@ -425,7 +414,6 @@ namespace FTAnalyzer
             to.Longitude = from.Longitude;
             to.LatitudeM = from.LatitudeM;
             to.LongitudeM = from.LongitudeM;
-            to.GeocodeStatus = from.GeocodeStatus;
             to.FoundLocation = from.FoundLocation;
             to.FoundResultType = from.FoundResultType;
             to.FoundLevel = from.FoundLevel;
@@ -749,10 +737,6 @@ namespace FTAnalyzer
 
         public string[] GetParts() => (string[])_Parts.Clone();
 
-#if __PC__
-        public System.Drawing.Image Icon => FactLocationImage.ErrorIcon(GeocodeStatus).Icon;
-#endif
-
         public string AddressNumeric => FixNumerics(Address, true);
 
         public string PlaceNumeric => FixNumerics(Place, true);
@@ -763,13 +747,9 @@ namespace FTAnalyzer
 
         public bool IsEnglandWales => Countries.IsEnglandWales(Country);
 
-        public string Geocoded => Geocodes.TryGetValue(GeocodeStatus, out string result) ? result : "Unknown";
-
         public static int LocationsCount => AllLocations.Count() - 1;
 
         public static int GEDCOMLocationsCount => AllLocations.Count(l => !l.FTAnalyzerCreated);
-
-        public static int GEDCOMGeocodedCount => AllLocations.Count(l => l.GEDCOMLatLong);
 
         public string FreeCenCountyCode
         {
@@ -793,9 +773,6 @@ namespace FTAnalyzer
 
         public bool IsBlank => Country.Length == 0;
         public bool IsKnown => this != BLANK_LOCATION && this != UNKNOWN_LOCATION;
-
-        public bool NeedsReverseGeocoding => FoundLocation.Length == 0 &&
-                    (GeocodeStatus == Geocode.GEDCOM_USER || GeocodeStatus == Geocode.OS_50KMATCH || GeocodeStatus == Geocode.OS_50KPARTIAL || GeocodeStatus == Geocode.OS_50KFUZZY);
 
         public string FixedLocation { get; set; }
         public string Address1 { get; set; }

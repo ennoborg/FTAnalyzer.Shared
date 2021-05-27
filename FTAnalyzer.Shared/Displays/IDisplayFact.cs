@@ -33,11 +33,6 @@ namespace FTAnalyzer
         FactLocation Location { get; }
         [ColumnDetail("Age at Fact", 70)]
         Age AgeAtFact { get; }
-#if __PC__
-        Image LocationIcon { get; }
-#endif
-        [ColumnDetail("Geocode Status", 150)]
-        string GeocodeStatus { get; }
         [ColumnDetail("Found Location", 250)]
         string FoundLocation { get; }
         [ColumnDetail("Found Result Type", 130)]

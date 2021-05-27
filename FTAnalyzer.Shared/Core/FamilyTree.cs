@@ -1893,42 +1893,6 @@ namespace FTAnalyzer
 
         #endregion
 
-        #region Geocoding
-
-        public static void WriteGeocodeStatstoRTB(string title, IProgress<string> outputText)
-        {
-            outputText.Report($"\n{title}");
-            // write geocode results - ignore UNKNOWN entry
-            int notsearched = FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.NOT_SEARCHED));
-            int needsReverse = FactLocation.AllLocations.Count(x => x.NeedsReverseGeocoding);
-            //Predicate<FactLocation> predicate = x => x.NeedsReverseGeocoding;
-            //List<FactLocation> needRev = FactLocation.AllLocations.Where(predicate).ToList();
-            outputText.Report($"\n{FactLocation.GEDCOMLocationsCount} locations and addresses loaded from GEDCOM file.\n");
-            outputText.Report($"    {FactLocation.GEDCOMGeocodedCount} have Lat/Long coordinates in the file.\n");
-            outputText.Report($"{FactLocation.LocationsCount} locations in use after processing file and generating extra locations for tree view.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.GEDCOM_USER) && x.FoundLocation.Length > 0)} are GEDCOM/User Entered and have been geocoded.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.GEDCOM_USER) && x.FoundLocation.Length == 0)} are GEDCOM/User Entered but lack a Google Location.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.MATCHED))} have a geocoding match from Google.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.OS_50KMATCH))} have a geocoding match from Ordnance Survey.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.OS_50KFUZZY))} have a fuzzy geocoding match from Ordnance Survey.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.PARTIAL_MATCH))} have partial geocoding match from Google.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.LEVEL_MISMATCH))} have partial geocoding match at lower level of detail.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.OS_50KPARTIAL))} have partial geocoding match from Ordnance Survey.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.OUT_OF_BOUNDS))} found by Google but outside country boundary.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.INCORRECT))} marked as incorrect by user.\n");
-            outputText.Report($"    {FactLocation.AllLocations.Count(x => x.GeocodeStatus.Equals(FactLocation.Geocode.NO_MATCH))} could not be found on Google.\n");
-            outputText.Report($"    {notsearched} haven't been searched.");
-            if (notsearched > 0)
-                outputText.Report(" Use the 'Run Google/OS Geocoder' option (under Maps menu) to find them.\n");
-            if (needsReverse > 0)
-            {
-                outputText.Report($"\nNote {needsReverse} of the searched locations are missing a Google location.");
-                outputText.Report(" Use the 'Lookup Blank Google Locations' option (under Maps menu) to find them.\n");
-            }
-        }
-
-        #endregion
-
         #region Relationship Groups
         public static List<Individual> GetFamily(Individual startIndividiual)
         {

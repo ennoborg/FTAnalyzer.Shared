@@ -24,7 +24,6 @@ namespace FTAnalyzer.Utilities
 
         public const string MainFormAction = "Main Form Action", FactsFormAction = "Facts Form Action",
                             ReportsAction = "Reports Action", GeocodingAction = "Geocoding Action",
-                            MapsAction = "Maps Action",
                             BMDSearchAction = "BMD Search Action", FTAStartupAction = "FTAnalyzer Startup", FTAShutdownAction = "FTAnalyzer Shutdown",
                             MainListsAction = "Main Lists Action", ErrorsFixesAction = "Error Fixes Action", GEDCOMAction = "GEDCOM Action";
 
@@ -32,8 +31,7 @@ namespace FTAnalyzer.Utilities
                             WWIReportEvent = "WWI Report Clicked", WWIIReportEvent = "WWII Report Clicked", BirthProfileEvent = "Birth Profiles Viewed",
                             OnlineManualEvent = "Online Manual Viewed", OnlineGuideEvent = "Online Guides Viewed", PrivacyEvent = "Privacy Policy Viewed",
                             OlderParentsEvent = "Older Parents Viewed", ReportIssueEvent = "Report Issue Visited", WhatsNewEvent = "Whats New Viewed",
-                            ShowTimelinesEvent = "Show Timelines Viewed", GoogleGeocodingEvent = "Google Geocoding Clicked", OSGeocodingEvent = "OS Geocoding Clicked",
-                            ReverseGeocodingEvent = "Reverse Geocoding Clicked", GeocodesEvent = "Geocodes Viewed", LifelinesEvent = "Show Lifelines Viewed",
+                            ShowTimelinesEvent = "Show Timelines Viewed", LifelinesEvent = "Show Lifelines Viewed",
                             ShowPlacesEvent = "Show Places Viewed", ViewAllSurnameEvent = "View all with Surname Clicked", GOONSEvent = "Show Guild of One Name Studies",
                             PossibleCensusEvent = "Possible Census Facts Viewed", MainListsEvent = "Main Lists Tab Viewed", ErrorsFixesEvent = "Errors Fixes Tab Viewed",
                             FactsTabEvent = "Facts Tab Viewed", SurnamesTabEvent = "Surnames Tab Viewed", CensusTabEvent = "Census Tab Viewed",

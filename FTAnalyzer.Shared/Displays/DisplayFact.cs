@@ -41,9 +41,7 @@ namespace FTAnalyzer
         public string SourceList => Fact.SourceList;
         public string FoundLocation => Fact.Location.FoundLocation;
         public string FoundResultType => Fact.Location.FoundResultType;
-        public string GeocodeStatus => Fact.Location.Geocoded;
 #if __PC__
-        public System.Drawing.Image LocationIcon => FactLocationImage.ErrorIcon(Fact.Location.GeocodeStatus).Icon;
         public bool Preferred => Fact.Preferred;
         public bool IgnoredFact => IgnoreFact;
 #elif __MACOS__ || __IOS__
@@ -91,7 +89,6 @@ namespace FTAnalyzer
                 case "RelationToRoot": return CompareComparableProperty<IDisplayFact>(f => f.RelationToRoot, ascending);
                 case "Location": return CompareComparableProperty<IDisplayFact>(f => f.Location, ascending);
                 case "AgeAtFact": return CompareComparableProperty<IDisplayFact>(f => f.AgeAtFact, ascending);
-                case "GeocodeStatus": return CompareComparableProperty<IDisplayFact>(f => f.GeocodeStatus, ascending);
                 case "FoundLocation": return CompareComparableProperty<IDisplayFact>(f => f.FoundLocation, ascending);
                 case "FoundResultType": return CompareComparableProperty<IDisplayFact>(f => f.FoundResultType, ascending);
                 case "Comment": return CompareComparableProperty<IDisplayFact>(f => f.Comment, ascending);
