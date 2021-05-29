@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -105,7 +105,7 @@ namespace FTAnalyzer
             _Parts = new string[] { Country, Region, SubRegion, Address, Place };
         }
 
-        FactLocation(string location, string latitude, string longitude)
+        private FactLocation(string location, string latitude, string longitude)
             : this(location)
         {
             Latitude = double.TryParse(latitude, out double temp) ? temp : 0;
